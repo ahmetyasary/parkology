@@ -30,11 +30,11 @@
     },
     {
       "key": "tap_lane",
-      "value": "Öndeki bloğu döngüye göndermek için şeride dokun!"
+      "value": "Şeride dokun, öndeki blok döngüye çıksın!"
     },
     {
       "key": "tip_match",
-      "value": "Bloklar, en arkadaki bloğu kendi renginde olan sütuna girer!"
+      "value": "Döngüde tur atar ve kendi renginin arkasına park eder!"
     },
     {
       "key": "tip_full",
@@ -155,6 +155,30 @@
     {
       "key": "booster_hand_info",
       "value": "Sadece öndekini değil, bekleyen herhangi bir bloğu döngüye gönder."
+    },
+    {
+      "key": "tip_push",
+      "value": "Sütun doluydu, öndeki blok döngüye itildi!"
+    },
+    {
+      "key": "tip_keep",
+      "value": "Park edebilecek blokları göndermeye devam et!"
+    },
+    {
+      "key": "tip_clear",
+      "value": "Tek renkle dolan sütun temizlenir! Hepsini temizle, kazan."
+    },
+    {
+      "key": "tip_capacity",
+      "value": "Döngüde en fazla 5 blok olabilir. Tıkanmasın!"
+    },
+    {
+      "key": "tip_order",
+      "value": "Otopark büyüdü! Önce hemen park edebilecek blokları gönder."
+    },
+    {
+      "key": "tip_last",
+      "value": "Son ısınma bölümü. Başarabilirsin!"
     }
   ]
 }

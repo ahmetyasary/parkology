@@ -68,5 +68,14 @@ namespace Parkology
             get => PlayerPrefs.GetInt("tutorial", 0) == 1;
             set { PlayerPrefs.SetInt("tutorial", value ? 1 : 0); PlayerPrefs.Save(); }
         }
+
+        /// <summary>Set once the warm-up levels are cleared; until then the app opens straight into the next level.</summary>
+        public static bool Onboarded
+        {
+            get => PlayerPrefs.GetInt("onboarded", 0) == 1;
+            set { PlayerPrefs.SetInt("onboarded", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
+        public static bool Onboarding => !Onboarded && Level <= LevelGenerator.OnboardingLevels;
     }
 }

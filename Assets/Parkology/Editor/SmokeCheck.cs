@@ -17,7 +17,7 @@ namespace Parkology.Editor
     public static class SmokeCheck
     {
         const int LastLevel = 8;
-        static readonly string[] keys = { "level", "coins", "boost_slot", "boost_hammer", "boost_hand", "boost_slot_intro", "boost_hammer_intro", "boost_hand_intro", "tutorial" };
+        static readonly string[] keys = { "level", "coins", "boost_slot", "boost_hammer", "boost_hand", "boost_slot_intro", "boost_hammer_intro", "boost_hand_intro", "tutorial", "onboarded" };
         static double started, levelStarted;
         static int level, errors;
 
@@ -61,11 +61,11 @@ namespace Parkology.Editor
             for (int n = 1; n <= 150; n++)
             {
                 var spec = LevelGenerator.Create(n);
-                if (spec.BlockCount % LevelGenerator.Slots != 0) throw new Exception("Level " + n + " has an incomplete colour group");
+                if (spec.BlockCount % spec.Slots != 0) throw new Exception("Level " + n + " has an incomplete colour group");
                 int waiting = 0;
                 foreach (var l in spec.Lanes) waiting += l.Count;
                 if (n <= 12 || n % 25 == 0)
-                    Debug.Log($"LEVEL {n}: {spec.Cols}x{spec.Slots} colors={spec.Colors} blocks={spec.BlockCount} waiting={waiting} cap={spec.Capacity} winRate={spec.WinRate:0.00}");
+                    Debug.Log($"LEVEL {n}: lanes={spec.Lanes.Length} {spec.Cols}x{spec.Slots} colors={spec.Colors} blocks={spec.BlockCount} waiting={waiting} cap={spec.Capacity} winRate={spec.WinRate:0.00}");
             }
             Debug.Log("PARKOLOGY_LEVELS_OK 150 levels in " + sw.ElapsedMilliseconds + " ms");
         }

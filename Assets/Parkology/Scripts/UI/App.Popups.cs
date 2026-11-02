@@ -139,6 +139,9 @@ namespace Parkology
             int reward = spec.Reward;
             Save.Level = spec.Number + 1;
             if (spec.Number == 1) Save.TutorialDone = true;
+            // The warm-up levels run back to back; the last one leads to the home screen.
+            bool toHome = !Save.Onboarded && spec.Number >= LevelGenerator.OnboardingLevels;
+            if (toHome) Save.Onboarded = true;
             Sfx.Duck(2.4f);
             Sfx.Play("win", 0.9f);
             var p = OpenPopup("level_complete", new Vector2(880, 980), false);
@@ -171,7 +174,8 @@ namespace Parkology
                 FlyCoins(rewardRow, reward, () => Tween.Delay(0.35f, () =>
                 {
                     p.close();
-                    Go(() => StartLevel(Save.Level));
+                    if (toHome) Go(ShowHome);
+                    else Go(() => StartLevel(Save.Level));
                 }));
             }, "icon-play", 64);
         }

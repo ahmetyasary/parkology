@@ -34,7 +34,7 @@
     },
     {
       "key": "tip_match",
-      "value": "Blocks join a column whose last block has their colour!"
+      "value": "It drives around the loop and parks behind its own colour!"
     },
     {
       "key": "tip_full",
@@ -155,6 +155,30 @@
     {
       "key": "booster_hand_info",
       "value": "Send any waiting block onto the loop, not just the front one."
+    },
+    {
+      "key": "tip_push",
+      "value": "That column was full, so its front block is pushed onto the loop!"
+    },
+    {
+      "key": "tip_keep",
+      "value": "Keep sending blocks that can park!"
+    },
+    {
+      "key": "tip_clear",
+      "value": "A column full of one colour clears! Clear them all to win."
+    },
+    {
+      "key": "tip_capacity",
+      "value": "The loop holds only 5 blocks. Don't let it jam!"
+    },
+    {
+      "key": "tip_order",
+      "value": "Bigger lot! Send blocks that can park right away first."
+    },
+    {
+      "key": "tip_last",
+      "value": "Last warm-up level. You've got this!"
     }
   ]
 }

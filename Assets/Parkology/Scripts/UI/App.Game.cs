@@ -17,7 +17,7 @@ namespace Parkology
         readonly BoosterButton[] boosters = new BoosterButton[3];
         Text capacityText;
         Image capacityPill;
-        RectTransform hint, tutorialHand;
+        RectTransform hint;
         Text hintText;
         LevelSpec spec;
 
@@ -32,10 +32,10 @@ namespace Parkology
             board.ConsumeBooster = UseBooster;
             board.CapacityChanged += OnCapacity;
             board.Blocked += () => { if (capacityPill) { Tween.Punch(capacityPill.transform, 0.3f, 0.4f); capacityPill.color = new Color(1f, 0.6f, 0.6f); } };
-            board.Dispatched += OnDispatched;
             board.Won += () => Tween.Delay(1.5f, ShowWin, board);
             board.Failed += () => Tween.Delay(0.7f, ShowFail, board);
             BuildHud();
+            WireCoaching();
             Tween.Delay(1.2f, LevelIntro, board);
         }
 
@@ -54,8 +54,23 @@ namespace Parkology
             capacityText = UIKit.Text(capacityPill.transform, "0/5", 44, UIKit.Brown, new Vector2(0.5f, 0.5f), new Vector2(34, 4), new Vector2(160, 64), TextAnchor.MiddleCenter, null, 0f, false);
             DropDown(capacityPill.transform, 0.35f);
 
-            // Booster bar
-            var bar = UIKit.Node(safe, "Boosters", new Vector2(0.5f, 0f), new Vector2(0, 130), new Vector2(900, 220));
+            // Booster bar; the first levels keep the bottom free for the tutorial.
+            for (int i = 0; i < boosters.Length; i++) boosters[i] = null;
+            boosterBar = null;
+            if (spec.Number >= Save.UnlockLevel(Booster.Slot)) BuildBoosterBar();
+
+            // Targeting hint (hammer / magnet)
+            hint = UIKit.Image(safe, "panel", new Vector2(0.5f, 0f), new Vector2(0, 330), new Vector2(820, 120), true, true).rectTransform;
+            hintText = UIKit.Text(hint, "", 40, UIKit.Ink, new Vector2(0.5f, 0.5f), new Vector2(-40, 2), new Vector2(660, 90), TextAnchor.MiddleCenter, null, 0f, false);
+            var cancel = UIKit.Button(hint, "btn-red", new Vector2(1f, 0.5f), new Vector2(-62, 4), new Vector2(92, 92), CancelTargeting);
+            UIKit.Image(cancel.transform, "icon-close", new Vector2(0.5f, 0.5f), new Vector2(0, 4), new Vector2(54, 54));
+            hint.gameObject.SetActive(false);
+        }
+
+        void BuildBoosterBar()
+        {
+            var bar = UIKit.Node(safe, "Boosters", new Vector2(0.5f, 0f), new Vector2(0, BarY), new Vector2(900, 220));
+            boosterBar = bar;
             string[] icons = { "icon-slot", "icon-hammer", "hand" };
             for (int i = 0; i < 3; i++)
             {
@@ -77,13 +92,6 @@ namespace Parkology
                 Tween.Move(b.root, new Vector2((i - 1) * 270f, -360f), new Vector2((i - 1) * 270f, 0), 0.55f, Ease.OutBack, 0.35f + i * 0.08f);
             }
             RefreshBoosters();
-
-            // Targeting hint (hammer / magnet)
-            hint = UIKit.Image(safe, "panel", new Vector2(0.5f, 0f), new Vector2(0, 330), new Vector2(820, 120), true, true).rectTransform;
-            hintText = UIKit.Text(hint, "", 40, UIKit.Ink, new Vector2(0.5f, 0.5f), new Vector2(-40, 2), new Vector2(660, 90), TextAnchor.MiddleCenter, null, 0f, false);
-            var cancel = UIKit.Button(hint, "btn-red", new Vector2(1f, 0.5f), new Vector2(-62, 4), new Vector2(92, 92), CancelTargeting);
-            UIKit.Image(cancel.transform, "icon-close", new Vector2(0.5f, 0.5f), new Vector2(0, 4), new Vector2(54, 54));
-            hint.gameObject.SetActive(false);
         }
 
         void RefreshBoosters()
@@ -212,41 +220,7 @@ namespace Parkology
                     ShowBoosterIntro(kind, LevelIntro);
                     return;
                 }
-            if (spec.Number == 1 && !Save.TutorialDone) ShowTutorialHand();
-            else if (spec.Number == 2) Toast(Loc.Get("tip_full"));
-            else if (spec.Number == 4) Toast(Loc.Get("tip_mystery"));
-        }
-
-        void ShowTutorialHand()
-        {
-            if (board == null) return;
-            Vector3 screen = board.LaneScreenPoint(0);
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(popupLayer, screen, null, out Vector2 local);
-            tutorialHand = UIKit.Node(popupLayer, "Tutorial", new Vector2(0.5f, 0.5f), local, new Vector2(10, 10));
-            var hand = UIKit.Image(tutorialHand, "hand", new Vector2(0.5f, 0.5f), new Vector2(40, -110), new Vector2(170, 187));
-            // The bubble sits low on the screen so it never covers the parking lot.
-            var bubble = UIKit.Image(popupLayer, "panel", new Vector2(0.5f, 0.5f), new Vector2(0, -560), new Vector2(760, 150), true);
-            bubble.transform.SetParent(tutorialHand, true);
-            UIKit.Text(bubble.transform, "tap_lane", 38, UIKit.Ink, new Vector2(0.5f, 0.5f), new Vector2(0, 2), new Vector2(510, 120));
-            var rt = hand.rectTransform;
-            Tween.Run(100f, k =>
-            {
-                if (!rt) return;
-                float t = Time.unscaledTime * 2.2f;
-                float press = Mathf.Max(0f, Mathf.Sin(t * Mathf.PI));
-                rt.anchoredPosition = new Vector2(40, -110 + press * 34f);
-                rt.localScale = Vector3.one * (1f - (1f - press) * 0.08f);
-            }, Ease.Linear, null, 0f, rt);
-        }
-
-        void OnDispatched()
-        {
-            if (tutorialHand)
-            {
-                Destroy(tutorialHand.gameObject);
-                tutorialHand = null;
-                Toast(Loc.Get("tip_match"));
-            }
+            StartCoaching();
         }
     }
 }

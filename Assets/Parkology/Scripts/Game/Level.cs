@@ -33,13 +33,17 @@ namespace Parkology
 
     public static class LevelGenerator
     {
-        public const int Slots = 5;
-        public const int Cols = 5;
         public const int Capacity = 5;
+        /// <summary>The first levels played in one go before the home screen.</summary>
+        public const int OnboardingLevels = 5;
+
+        /// <summary>The lot grows while the player learns: 3x3 (levels 1-2), 4x4 (3-4), then the full 5x5.</summary>
+        public static int Size(int number) => number <= 2 ? 3 : number <= 4 ? 4 : 5;
 
         public static LevelSpec Create(int number)
         {
             Params(number, out int groups, out int colors, out float mix, out float hidden);
+            int size = Size(number), laneCount = size == 3 ? 2 : 3;
             var rng = new System.Random(number * 7919 + 17);
             // Backward construction guarantees a solution. Random play-outs rate how forgiving a candidate is;
             // early levels keep the most forgiving of many candidates, later ones of a few.
@@ -49,7 +53,7 @@ namespace Parkology
             LevelSpec best = null;
             for (int attempt = 0; attempt < 400 && candidates > 0; attempt++)
             {
-                var spec = Build(number, groups, colors, mix, rng);
+                var spec = Build(number, size, size, laneCount, groups, colors, mix, rng);
                 if (spec == null) continue;
                 candidates--;
                 spec.WinRate = Solver.WinRate(spec, 40, rng);
@@ -65,8 +69,11 @@ namespace Parkology
         /// <summary>Difficulty curve: more blocks in the depots, more colours, more mixing, mystery blocks.</summary>
         static void Params(int n, out int groups, out int colors, out float mix, out float hidden)
         {
-            groups = System.Math.Min(10, 6 + n / 2);          // 6 groups = 25 parked + 5 waiting
-            colors = System.Math.Min(8, System.Math.Min(groups, 3 + n / 2));
+            // groups = columns + the groups waiting in the depots; the small lots get one or two waiting groups
+            int[] early = { 0, 4, 5, 5, 6 };  // 3x3, 3x3, 4x4, 4x4
+            int[] earlyColors = { 0, 3, 3, 4, 4 };
+            groups = n < early.Length ? early[n] : System.Math.Min(10, 6 + n / 2); // 5x5: 6 groups = 25 parked + 5 waiting
+            colors = n < early.Length ? earlyColors[n] : System.Math.Min(8, System.Math.Min(groups, 3 + n / 2));
             mix = System.Math.Min(0.75f, 0.3f + n * 0.04f);  // chance a loose block is tucked into a column front
             hidden = n < 4 ? 0f : System.Math.Min(0.25f, 0.08f + 0.015f * (n - 4));
         }
@@ -77,25 +84,25 @@ namespace Parkology
         /// tucks a loose block in at its front (only where the new back block shares the colour); un-sending puts a
         /// loose block back at the front of a depot lane. The loop never holds more than the capacity.
         /// </summary>
-        static LevelSpec Build(int number, int groups, int colors, float mix, System.Random rng)
+        static LevelSpec Build(int number, int colCount, int slots, int laneCount, int groups, int colors, float mix, System.Random rng)
         {
             var groupColors = new List<int>();
             for (int g = 0; g < groups; g++) groupColors.Add(g < colors ? g : rng.Next(colors));
             Shuffle(groupColors, rng);
             int next = 0;
-            var cols = new List<int>[Cols];
-            for (int c = 0; c < Cols; c++)
+            var cols = new List<int>[colCount];
+            for (int c = 0; c < colCount; c++)
             {
                 cols[c] = new List<int>();
-                for (int k = 0; k < Slots; k++) cols[c].Add(groupColors[next]);
+                for (int k = 0; k < slots; k++) cols[c].Add(groupColors[next]);
                 next++;
             }
             var loop = new List<int>();
-            var lanes = new List<int>[3];
-            for (int l = 0; l < 3; l++) lanes[l] = new List<int>();
+            var lanes = new List<int>[laneCount];
+            for (int l = 0; l < laneCount; l++) lanes[l] = new List<int>();
 
-            bool Sorted(List<int> col) => col.Count == Slots && col.TrueForAll(x => x == col[0]);
-            bool CanUnjoin(List<int> col) => col.Count == Slots && col[Slots - 1] == col[Slots - 2];
+            bool Sorted(List<int> col) => col.Count == slots && col.TrueForAll(x => x == col[0]);
+            bool CanUnjoin(List<int> col) => col.Count == slots && col[slots - 1] == col[slots - 2];
 
             // Spreads the loose blocks: tuck into column fronts (un-join with push) or put back into depots (un-send).
             // Before the last round the freshly un-cleared column stays sorted, ready for the next round.
@@ -105,7 +112,7 @@ namespace Parkology
                 {
                     int i = rng.Next(loop.Count);
                     var targets = new List<int>();
-                    for (int c = 0; c < Cols; c++)
+                    for (int c = 0; c < colCount; c++)
                         if (CanUnjoin(cols[c]) && cols[c][0] != loop[i] && (last || c != fresh)) targets.Add(c);
                     // in the last round, columns that are still one colour take a block first so none starts sorted
                     var sortedTargets = last ? targets.FindAll(c => Sorted(cols[c])) : new List<int>();
@@ -114,20 +121,20 @@ namespace Parkology
                     if (tuck)
                     {
                         var col = cols[targets[rng.Next(targets.Count)]];
-                        int back = col[Slots - 1];
-                        col.RemoveAt(Slots - 1);
+                        int back = col[slots - 1];
+                        col.RemoveAt(slots - 1);
                         col.Insert(0, loop[i]);
                         loop[i] = back;
                     }
                     else
                     {
-                        lanes[rng.Next(3)].Insert(0, loop[i]);
+                        lanes[rng.Next(laneCount)].Insert(0, loop[i]);
                         loop.RemoveAt(i);
                     }
                 }
                 while (loop.Count > 0)
                 {
-                    lanes[rng.Next(3)].Insert(0, loop[0]);
+                    lanes[rng.Next(laneCount)].Insert(0, loop[0]);
                     loop.RemoveAt(0);
                 }
             }
@@ -137,26 +144,26 @@ namespace Parkology
             while (next < groups)
             {
                 var sorted = new List<int>();
-                for (int c = 0; c < Cols; c++) if (Sorted(cols[c])) sorted.Add(c);
+                for (int c = 0; c < colCount; c++) if (Sorted(cols[c])) sorted.Add(c);
                 if (sorted.Count == 0) return null;
                 int fresh = sorted[rng.Next(sorted.Count)];
                 var col = cols[fresh];
                 loop.AddRange(col);
                 col.Clear();
-                for (int k = 0; k < Slots; k++) col.Add(groupColors[next]);
+                for (int k = 0; k < slots; k++) col.Add(groupColors[next]);
                 next++;
                 Distribute(60, next == groups, fresh);
             }
             foreach (var col in cols)
             {
-                if (col.Count != Slots || Sorted(col)) return null;
+                if (col.Count != slots || Sorted(col)) return null;
             }
 
-            var spec = new LevelSpec { Number = number, Cols = Cols, Slots = Slots, Capacity = Capacity, Colors = colors };
-            spec.Grid = new int[Cols, Slots];
-            spec.Hidden = new bool[Cols, Slots];
-            for (int c = 0; c < Cols; c++)
-                for (int k = 0; k < Slots; k++) spec.Grid[c, k] = cols[c][k];
+            var spec = new LevelSpec { Number = number, Cols = colCount, Slots = slots, Capacity = Capacity, Colors = colors };
+            spec.Grid = new int[colCount, slots];
+            spec.Hidden = new bool[colCount, slots];
+            for (int c = 0; c < colCount; c++)
+                for (int k = 0; k < slots; k++) spec.Grid[c, k] = cols[c][k];
             spec.Lanes = lanes;
             return spec;
         }

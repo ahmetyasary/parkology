@@ -34,7 +34,10 @@ namespace Parkology
         }
 
         public event Action<int, int> CapacityChanged;
-        public event Action Won, Failed, Dispatched, Blocked;
+        public event Action Won, Failed, Dispatched, Blocked, Revealed;
+        /// <summary>A block parked in a column; true when the column was full and pushed its front block out.</summary>
+        public event Action<int, bool> Joined;
+        public event Action<int> Cleared;
 
         public LevelSpec Spec { get; private set; }
         public bool Demo { get; private set; }
@@ -200,6 +203,48 @@ namespace Parkology
         }
 
         public Vector3 LaneScreenPoint(int lane) => cam.WorldToScreenPoint(transform.TransformPoint(LanePos(lane, 0) + Vector3.up * 0.5f));
+        public Vector3 SlotScreenPoint(int c, int k) => cam.WorldToScreenPoint(transform.TransformPoint(SlotPos(c, k) + Vector3.up * 0.5f));
+
+        /// <summary>A lane whose front block can park right away (for tutorial pointers), else any lane with blocks.</summary>
+        public int SuggestLane()
+        {
+            int any = -1;
+            for (int l = 0; l < lanes.Length; l++)
+            {
+                if (lanes[l].Count == 0 || LaneBusy(l)) continue;
+                if (!lanes[l][0].hidden && CanAnyJoin(lanes[l][0].color)) return l;
+                if (any < 0) any = l;
+            }
+            return any;
+        }
+
+        /// <summary>The column a block of this lane's front colour would park in, or -1.</summary>
+        public int HomeColumn(int lane)
+        {
+            if (lane < 0 || lanes[lane].Count == 0) return -1;
+            for (int c = 0; c < Spec.Cols; c++) if (CanJoin(c, lanes[lane][0].color)) return c;
+            return -1;
+        }
+
+        /// <summary>Column of the newest block on the loop that has a home, for "it drives there" pointers.</summary>
+        public int LoopHomeColumn()
+        {
+            for (int i = moving.Count - 1; i >= 0; i--)
+            {
+                if (moving[i].hidden) continue;
+                for (int c = 0; c < Spec.Cols; c++) if (CanJoin(c, moving[i].color)) return c;
+            }
+            return -1;
+        }
+
+        public bool FindHidden(out int column, out int slot)
+        {
+            for (column = 0; column < Spec.Cols; column++)
+                for (slot = 0; slot < columns[column].Count; slot++)
+                    if (columns[column][slot].hidden) return true;
+            column = slot = -1;
+            return false;
+        }
         public bool CanAddSlot => ExtraSlots < 3;
 
         public void AddSlot()
@@ -623,6 +668,7 @@ namespace Parkology
             if (pushed != null) Eject(pushed, c);
             Settle(c, car);
             Reveal(c);
+            Joined?.Invoke(c, pushed != null);
             if (!Demo)
             {
                 Sfx.Play("hop", 0.5f);
@@ -709,6 +755,7 @@ namespace Parkology
                     Sfx.Play("reveal", 0.6f);
                     Haptics.Play(Haptic.Reveal);
                 }
+                Revealed?.Invoke();
             }
         }
 
@@ -750,6 +797,7 @@ namespace Parkology
                     clearing[c] = false;
                     animations--;
                     BlocksLeft -= cars.Length;
+                    Cleared?.Invoke(c);
                     Fx.Sparkle(transform.TransformPoint(SlotPos(c, Spec.Slots / 2) + Vector3.up * 0.8f), 12);
                 }, 0.25f + (cars.Length - 1 - k) * 0.07f, tr, ("clear", tr));
             }

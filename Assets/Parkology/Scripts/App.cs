@@ -145,7 +145,9 @@ namespace Parkology
             yield return null;
             NativeLaunch.Hide();
             yield return splash.Run(this);
-            Go(ShowHome);
+            // New players drop straight into the warm-up levels; the home screen comes after them.
+            if (Save.Onboarding) Go(() => StartLevel(Save.Level));
+            else Go(ShowHome);
         }
 
         void OnApplicationPause(bool paused)

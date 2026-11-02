@@ -6,7 +6,7 @@ Smartlogy için Android ve iOS hedefli, dikey Unity 6 (6000.6.1f1) bulmaca oyunu
 
 Oynanış, referans oyunla (Parking Loop) birebir aynı kurallara sahip; karakterler araba yerine yüzlü Lego bloklar.
 
-- Ortada 5 sütun, her sütunda 5 yuva var. Sütunlar kuyruk gibi çalışır: bloklar arkadan (üstten) girer, önden (alttan) çıkar.
+- Otopark oyuncu öğrendikçe büyür: 1–2. bölüm 3x3 (2 şerit), 3–4. bölüm 4x4, 5. bölümden itibaren 5 sütun x 5 yuva. Sütunlar kuyruk gibi çalışır: bloklar arkadan (üstten) girer, önden (alttan) çıkar.
 - Alttaki 3 şeritten birine dokununca en öndeki blok döngüye girer.
 - Döngüdeki blok, en arkadaki bloğu kendi renginde olan bir sütuna üstten girer. Sütun doluysa öndeki blok döngüye itilir ve döngüdeki sayı değişmez. Sütunda boş yer varsa itme olmaz ve sayı bir azalır.
 - Blok boş bir sütuna yalnızca kendi rengi hiçbir sütunun arkasında yoksa girer. Böylece bir renk iki boş sütuna bölünmez.
@@ -19,6 +19,8 @@ Oynanış, referans oyunla (Parking Loop) birebir aynı kurallara sahip; karakte
   - **El** (7. bölüm): şeritlerdeki herhangi bir bloğu döngüye gönderir.
 
   Her joker açılınca 3 adet verilir, sonra 150 altın.
+
+İlk açılışta ana menü atlanır: oyuncu doğrudan 1. bölümle başlar ve ilk 5 bölümü arka arkaya oynar, 5. bölümden sonra ana menüye geçer (`Save.Onboarded`). Bu bölümlerde alttan kayan maskotlu bir balon, dokunan el ve tahtadaki parlamalarla kurallar oyunda oldukları anda anlatılır (`App.Tutorial.cs`). 1–2. bölümlerde joker çubuğu gizlidir.
 
 Bölümler oyunun hamleleri sondan başa uygulanarak üretilir, bu yüzden her bölümün en az bir çözümü vardır. Zorluk, rastgele oyunlarla ölçülen kazanma oranına göre ayarlanır.
 
