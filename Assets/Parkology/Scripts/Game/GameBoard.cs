@@ -14,6 +14,8 @@ namespace Parkology
     public sealed class GameBoard : MonoBehaviour
     {
         const float Speed = 2.6f;
+        /// <summary>Loop speed multiplier for the finish: nothing is left to send and the rest fills two columns.</summary>
+        const float RushPace = 3.2f;
         const float LaneGap = 1.05f;
         const float LaneSpacing = 1.1f;
         const float CarHalf = 0.45f;
@@ -60,7 +62,8 @@ namespace Parkology
         bool[] clearing;
         readonly List<Car> moving = new List<Car>();
         int animations;
-        float stuckTime, autoTimer, introUntil;
+        float stuckTime, autoTimer, introUntil, pace = 1f;
+        bool rushing;
         int lastActive = -1, lastCapacity = -1;
         readonly System.Random autoRng = new System.Random(7);
 
@@ -271,6 +274,7 @@ namespace Parkology
             float dt = Mathf.Min(Time.deltaTime, 0.05f);
             if (!Finished && InputEnabled && !Demo && Time.time > introUntil && Pointer.Down(out Vector2 screen)) HandleTap(screen);
             if ((Demo || Autoplay) && !Finished && Time.time > introUntil) AutoStep(dt);
+            CheckRush(dt);
 
             for (int i = moving.Count - 1; i >= 0; i--)
             {
@@ -576,14 +580,14 @@ namespace Parkology
                 if (gap > ring.Length - 1.5f) continue; // that block is just behind us
                 best = Mathf.Min(best, gap);
             }
-            if (best == float.MaxValue) return Speed;
-            return Speed * Mathf.Clamp01((best - FollowGap) / 0.6f);
+            if (best == float.MaxValue) return Speed * pace;
+            return Speed * pace * Mathf.Clamp01((best - FollowGap) / (0.6f * pace));
         }
 
         void Drive(Car car, float dt)
         {
             float target = FollowSpeed(car, car.s);
-            car.speed = Mathf.MoveTowards(car.speed, target, dt * (target < car.speed ? 14f : 6f));
+            car.speed = Mathf.MoveTowards(car.speed, target, dt * pace * (target < car.speed ? 14f : 6f));
             float prev = car.s;
             car.s += car.speed * dt;
             var tr = car.view.transform;
@@ -803,6 +807,31 @@ namespace Parkology
             }
         }
 
+        bool LanesEmpty
+        {
+            get
+            {
+                foreach (var l in lanes) if (l.Count > 0) return false;
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Once nothing is left to send and the remaining blocks fill at most two columns, the loop speeds up so the
+        /// last blocks hurry home and the level wraps up without a slow lap.
+        /// </summary>
+        void CheckRush(float dt)
+        {
+            if (!rushing && !Demo && !Finished && BlocksLeft > 0 && BlocksLeft <= Spec.Slots * 2 && LanesEmpty && ActiveCount > 0)
+            {
+                rushing = true;
+                Sfx.Play("whoosh", 0.6f, 1.25f);
+                Haptics.Play(Haptic.Soft);
+                foreach (var car in moving) car.view.Express(Face.Joy, 1.2f);
+            }
+            pace = Mathf.MoveTowards(pace, rushing && !Finished ? RushPace : 1f, dt * 4f);
+        }
+
         // ------------------------------------------------------------------ win / lose
 
         bool CanAnyJoin(int color)
@@ -814,8 +843,7 @@ namespace Parkology
         void CheckEnd(float dt)
         {
             if (Finished) return;
-            bool lanesEmpty = true;
-            foreach (var l in lanes) if (l.Count > 0) lanesEmpty = false;
+            bool lanesEmpty = LanesEmpty;
             if (BlocksLeft <= 0 && animations == 0 && moving.Count == 0)
             {
                 Finished = true;

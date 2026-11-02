@@ -10,7 +10,7 @@ Oynanış, referans oyunla (Parking Loop) birebir aynı kurallara sahip; karakte
 - Alttaki 3 şeritten birine dokununca en öndeki blok döngüye girer.
 - Döngüdeki blok, en arkadaki bloğu kendi renginde olan bir sütuna üstten girer. Sütun doluysa öndeki blok döngüye itilir ve döngüdeki sayı değişmez. Sütunda boş yer varsa itme olmaz ve sayı bir azalır.
 - Blok boş bir sütuna yalnızca kendi rengi hiçbir sütunun arkasında yoksa girer. Böylece bir renk iki boş sütuna bölünmez.
-- Tamamen aynı renkle dolan sütun temizlenir. Her şey temizlenince bölüm biter.
+- Tamamen aynı renkle dolan sütun temizlenir. Her şey temizlenince bölüm biter. Gönderilecek blok kalmadığında kalanlar en fazla 2 sütunluksa döngü hızlanır ve son bloklar hızla yerine gider.
 - Döngüde en fazla 5 blok olabilir. Döngü dolu ve hiçbir blok bir sütuna giremiyorsa bölüm kaybedilir.
 - Gizemli (?) bloklar sütunun bir ucuna gelince rengini gösterir. 8. bölümden itibaren şeritlerde de gizemli bloklar var; öne gelince açılır.
 - Jokerler:
