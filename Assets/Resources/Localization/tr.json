@@ -1,0 +1,160 @@
+{
+  "entries": [
+    {
+      "key": "loading",
+      "value": "Yükleniyor..."
+    },
+    {
+      "key": "play",
+      "value": "OYNA"
+    },
+    {
+      "key": "level_n",
+      "value": "Bölüm {0}"
+    },
+    {
+      "key": "lv_n",
+      "value": "Bl. {0}"
+    },
+    {
+      "key": "unlocks_at",
+      "value": "{0}. bölümde açılır"
+    },
+    {
+      "key": "slot_max",
+      "value": "Döngü daha fazla blok alamaz!"
+    },
+    {
+      "key": "hint_hammer",
+      "value": "Bir sütuna dokun: öndeki blok döngüye itilir!"
+    },
+    {
+      "key": "tap_lane",
+      "value": "Öndeki bloğu döngüye göndermek için şeride dokun!"
+    },
+    {
+      "key": "tip_match",
+      "value": "Bloklar, en arkadaki bloğu kendi renginde olan sütuna girer!"
+    },
+    {
+      "key": "tip_full",
+      "value": "Bir sütunu tek renkle doldur, temizlensin!"
+    },
+    {
+      "key": "tip_mystery",
+      "value": "Gizemli bloklar sütunun ucuna gelince rengini gösterir!"
+    },
+    {
+      "key": "settings",
+      "value": "Ayarlar"
+    },
+    {
+      "key": "sound",
+      "value": "Ses"
+    },
+    {
+      "key": "music",
+      "value": "Müzik"
+    },
+    {
+      "key": "vibration",
+      "value": "Titreşim"
+    },
+    {
+      "key": "language",
+      "value": "Dil"
+    },
+    {
+      "key": "home",
+      "value": "Ana Sayfa"
+    },
+    {
+      "key": "restart",
+      "value": "Yeniden"
+    },
+    {
+      "key": "privacy",
+      "value": "Gizlilik Politikası"
+    },
+    {
+      "key": "terms",
+      "value": "Kullanım Koşulları"
+    },
+    {
+      "key": "support",
+      "value": "Destek"
+    },
+    {
+      "key": "level_complete",
+      "value": "Harika!"
+    },
+    {
+      "key": "next",
+      "value": "Devam"
+    },
+    {
+      "key": "out_of_space",
+      "value": "Döngü Tıkandı!"
+    },
+    {
+      "key": "fail_body",
+      "value": "Döngü dolu ve hiçbir blok bir sütuna giremiyor."
+    },
+    {
+      "key": "continue_slot",
+      "value": "+1 Döngü Yeri"
+    },
+    {
+      "key": "continue_coins",
+      "value": "+1 Yer  {0}"
+    },
+    {
+      "key": "retry",
+      "value": "Tekrar Dene"
+    },
+    {
+      "key": "no_coins",
+      "value": "Yeterli altın yok"
+    },
+    {
+      "key": "booster_slot",
+      "value": "+1 Döngü Yeri"
+    },
+    {
+      "key": "booster_hammer",
+      "value": "Çekiç"
+    },
+    {
+      "key": "booster_slot_info",
+      "value": "Döngüye bir blok daha sığar."
+    },
+    {
+      "key": "booster_hammer_info",
+      "value": "Bir sütuna vur: öndeki blok döngüye itilir."
+    },
+    {
+      "key": "new_booster",
+      "value": "Yeni güçlendirici açıldı!"
+    },
+    {
+      "key": "got_it",
+      "value": "Anladım!"
+    },
+    {
+      "key": "buy_for",
+      "value": "Satın Al  {0}"
+    },
+    {
+      "key": "hint_hand",
+      "value": "Döngüye göndermek için bekleyen herhangi bir bloğa dokun!"
+    },
+    {
+      "key": "booster_hand",
+      "value": "El"
+    },
+    {
+      "key": "booster_hand_info",
+      "value": "Sadece öndekini değil, bekleyen herhangi bir bloğu döngüye gönder."
+    }
+  ]
+}

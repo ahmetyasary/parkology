@@ -1,0 +1,160 @@
+{
+  "entries": [
+    {
+      "key": "loading",
+      "value": "Loading..."
+    },
+    {
+      "key": "play",
+      "value": "PLAY"
+    },
+    {
+      "key": "level_n",
+      "value": "Level {0}"
+    },
+    {
+      "key": "lv_n",
+      "value": "Lv {0}"
+    },
+    {
+      "key": "unlocks_at",
+      "value": "Unlocks at level {0}"
+    },
+    {
+      "key": "slot_max",
+      "value": "The loop can't hold any more!"
+    },
+    {
+      "key": "hint_hammer",
+      "value": "Tap a column: its front block is pushed onto the loop!"
+    },
+    {
+      "key": "tap_lane",
+      "value": "Tap a lane to send its front block onto the loop!"
+    },
+    {
+      "key": "tip_match",
+      "value": "Blocks join a column whose last block has their colour!"
+    },
+    {
+      "key": "tip_full",
+      "value": "Fill a column with one colour to clear it!"
+    },
+    {
+      "key": "tip_mystery",
+      "value": "Mystery blocks show their colour at the end of a column!"
+    },
+    {
+      "key": "settings",
+      "value": "Settings"
+    },
+    {
+      "key": "sound",
+      "value": "Sound"
+    },
+    {
+      "key": "music",
+      "value": "Music"
+    },
+    {
+      "key": "vibration",
+      "value": "Vibration"
+    },
+    {
+      "key": "language",
+      "value": "Language"
+    },
+    {
+      "key": "home",
+      "value": "Home"
+    },
+    {
+      "key": "restart",
+      "value": "Restart"
+    },
+    {
+      "key": "privacy",
+      "value": "Privacy Policy"
+    },
+    {
+      "key": "terms",
+      "value": "Terms of Service"
+    },
+    {
+      "key": "support",
+      "value": "Support"
+    },
+    {
+      "key": "level_complete",
+      "value": "Well Done!"
+    },
+    {
+      "key": "next",
+      "value": "Next"
+    },
+    {
+      "key": "out_of_space",
+      "value": "Loop Jam!"
+    },
+    {
+      "key": "fail_body",
+      "value": "The loop is full and no block can get into a column."
+    },
+    {
+      "key": "continue_slot",
+      "value": "+1 Loop Slot"
+    },
+    {
+      "key": "continue_coins",
+      "value": "+1 Slot  {0}"
+    },
+    {
+      "key": "retry",
+      "value": "Try Again"
+    },
+    {
+      "key": "no_coins",
+      "value": "Not enough coins"
+    },
+    {
+      "key": "booster_slot",
+      "value": "+1 Loop Slot"
+    },
+    {
+      "key": "booster_hammer",
+      "value": "Hammer"
+    },
+    {
+      "key": "booster_slot_info",
+      "value": "One more block can drive on the loop."
+    },
+    {
+      "key": "booster_hammer_info",
+      "value": "Strike a column: its front block is pushed onto the loop."
+    },
+    {
+      "key": "new_booster",
+      "value": "New booster unlocked!"
+    },
+    {
+      "key": "got_it",
+      "value": "Got it!"
+    },
+    {
+      "key": "buy_for",
+      "value": "Buy  {0}"
+    },
+    {
+      "key": "hint_hand",
+      "value": "Tap any waiting block to send it onto the loop!"
+    },
+    {
+      "key": "booster_hand",
+      "value": "Hand"
+    },
+    {
+      "key": "booster_hand_info",
+      "value": "Send any waiting block onto the loop, not just the front one."
+    }
+  ]
+}
