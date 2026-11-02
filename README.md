@@ -56,7 +56,7 @@ Unity -batchmode -projectPath . -executeMethod Parkology.Editor.SmokeCheck.Run -
 
 1–150. bölümlerin üretildiğini doğrular, ardından 1–8. bölümleri gerçek oyun tahtasında otomatik oynar (kazanma ve kayıplar raporlanır). Oyuncu ilerlemesi yedeklenip geri yüklenir.
 
-- iOS: `Parkology.Editor.MobileBuild.ExportIOS` (cihaz) / `ExportIOSSimulator`
+- iOS: `Parkology.Editor.MobileBuild.ExportIOS` (cihaz) / `ExportIOSSimulator`. App Store Connect yüklemesi için build numarası her seferinde artırılmalı: `-buildNumber N`. App Store adı "Parkology: Block Loop" (uygulama no 6829916996); "Parkology" adı başka bir uygulamaya ait, ikon altındaki ad yine Parkology.
 - Android: `Parkology.Editor.MobileBuild.BuildAndroidAPK`
 - Ayarlar ve sahne: `Parkology > Prepare Project` menüsü
 

@@ -23,6 +23,9 @@ namespace Parkology.Editor
                 // Smartlogy team (same as Roller Sort); Xcode manages the provisioning profile.
                 PlayerSettings.iOS.appleDeveloperTeamID = "9VSUBY2W33";
                 PlayerSettings.iOS.appleEnableAutomaticSigning = true;
+                // Each App Store Connect upload needs a higher build number: pass -buildNumber N.
+                string build = Arg("-buildNumber");
+                if (build != null) PlayerSettings.iOS.buildNumber = build;
                 if (sdk == iOSSdkVersion.SimulatorSDK && architecture != null)
                 {
                     string arm64 = System.Array.Find(System.Enum.GetNames(architecture.PropertyType), n => n.ToUpperInvariant().Contains("ARM64"));
@@ -44,6 +47,13 @@ namespace Parkology.Editor
                 PlayerSettings.iOS.sdkVersion = previous;
                 if (architecture != null && previousArch != null) architecture.SetValue(null, previousArch);
             }
+        }
+
+        static string Arg(string name)
+        {
+            var args = System.Environment.GetCommandLineArgs();
+            int i = System.Array.IndexOf(args, name);
+            return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
         }
 
         public static void BuildAndroidAPK()
