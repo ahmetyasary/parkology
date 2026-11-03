@@ -236,7 +236,13 @@ def main():
                 if not src.exists():
                     continue
                 n += 1
-                compose(device, src, head, sub, seed=i).save(folder / f"{n:02d}-{shot}.png")
+                img = compose(device, src, head, sub, seed=i)
+                img.save(folder / f"{n:02d}-{shot}.png")
+                if device == "iphone":
+                    # App Store Connect's base iPhone slot is the 6.3" display.
+                    small = OUT / lang / "iphone-6.3"
+                    small.mkdir(exist_ok=True)
+                    img.resize((1206, 2622), Image.LANCZOS).save(small / f"{n:02d}-{shot}.png")
             print(lang, device, n)
     banners = OUT / "banners"
     banners.mkdir(exist_ok=True)
@@ -245,7 +251,34 @@ def main():
         banner((1024, 500), "Parkology", tagline, shots, banners / f"feature-1024x500-{lang}.png")
         banner((1920, 1080), "Parkology", tagline, shots, banners / f"header-1920x1080-{lang}.png")
         banner((1500, 500), "Parkology", tagline, shots, banners / f"header-1500x500-{lang}.png")
+        store_header(shots, banners / f"appstore-header-3840x1646-{lang}.png")
     print("banners ok")
+
+
+def store_header(raw_shots, path):
+    """Text-free art for the App Store product page header (the store draws the name and icon)."""
+    W, H = 3840, 1646
+    canvas = gradient((W, H)).convert("RGBA")
+    rng = __import__("random").Random(11)
+    unit = H / 6
+    for _ in range(16):
+        x, y = rng.uniform(0, W), rng.uniform(0, H)
+        if W * 0.3 < x < W * 0.7:
+            continue
+        block(canvas, x, y, unit * rng.uniform(0.7, 1.2), rng.choice(BLOCKS), rng.uniform(-30, 30))
+    ph = int(H * 0.95)
+    for i, shot_path in enumerate(raw_shots):
+        shot = Image.open(shot_path).convert("RGB")
+        pw = int(ph * shot.width / shot.height)
+        border = max(8, pw // 22)
+        frame = Image.new("RGBA", (pw + 2 * border, ph + 2 * border), INK + (255,))
+        frame = rounded(frame, int(pw * 0.14))
+        frame.alpha_composite(rounded(shot.resize((pw, ph), Image.LANCZOS), int(pw * 0.12)), (border, border))
+        frame = frame.rotate(6 - i * 12, expand=True, resample=Image.BICUBIC)
+        x = int(W / 2 - frame.width + i * frame.width * 0.9)
+        y = int(H * (0.08 + i * 0.06))
+        canvas.alpha_composite(frame, (x, y))
+    canvas.convert("RGB").save(path)
 
 
 if __name__ == "__main__":

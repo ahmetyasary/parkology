@@ -1,7 +1,7 @@
 # Parkology — App Store metadata
 
 App Store Connect: app id 6829916996, bundle `com.smartlogy.parkology`, SKU `parkology`.
-Screenshots: `Docs/AppStore/<en|tr>/<iphone|ipad>/` (iPhone 6.9" 1320x2868, iPad 13" 2064x2752), regenerate with `python3 Tools/store-screens.py`.
+Screenshots: `Docs/AppStore/<en|tr>/<iphone-6.3|iphone|ipad>/` (App Store Connect's iPhone slot takes 6.3" 1206x2622; 6.9" 1320x2868 kept as source; iPad 13" 2064x2752). Product page header: `banners/appstore-header-3840x1646-<lang>.png`, regenerate with `python3 Tools/store-screens.py`.
 Web pages to host: `Docs/AppStore/web/Parkology/{Privacy,Support,Terms}/index.html` → `https://www.smartlogy.com.tr/Parkology/...`.
 
 ## App information
@@ -12,7 +12,7 @@ Web pages to host: `Docs/AppStore/web/Parkology/{Privacy,Support,Terms}/index.ht
 | Category | Games → Puzzle; secondary Games → Casual |
 | Content rights | No third-party content |
 | Age rating | 4+ (every questionnaire answer "None"/"No") |
-| Price | Free, all territories |
+| Price | Free; 174 regions (China mainland excluded: games there need a government license number) |
 | App Privacy | Data Not Collected (no ads, analytics, accounts or purchases; progress stays on device) |
 | Encryption | `ITSAppUsesNonExemptEncryption = false` (already in Info.plist) |
 | Copyright | 2026 Ahmet Yaşar YILDIRIM |
