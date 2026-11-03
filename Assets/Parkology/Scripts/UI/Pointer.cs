@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -6,21 +7,27 @@ namespace Parkology
     /// <summary>World taps that did not land on UI.</summary>
     public static class Pointer
     {
-        public static bool Down(out Vector2 position)
+        /// <summary>
+        /// Every touch that began this frame, not only the first finger: in quick taps the next finger often lands
+        /// before the previous one has lifted, and it must not be lost.
+        /// </summary>
+        public static void Downs(List<Vector2> positions)
         {
-            position = default;
+            positions.Clear();
             if (Input.touchCount > 0)
             {
-                var touch = Input.GetTouch(0);
-                if (touch.phase != TouchPhase.Began) return false;
-                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(touch.fingerId)) return false;
-                position = touch.position;
-                return true;
+                for (int i = 0; i < Input.touchCount; i++)
+                {
+                    var touch = Input.GetTouch(i);
+                    if (touch.phase != TouchPhase.Began) continue;
+                    if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(touch.fingerId)) continue;
+                    positions.Add(touch.position);
+                }
+                return;
             }
-            if (!Input.GetMouseButtonDown(0)) return false;
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return false;
-            position = Input.mousePosition;
-            return true;
+            if (!Input.GetMouseButtonDown(0)) return;
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+            positions.Add(Input.mousePosition);
         }
     }
 }

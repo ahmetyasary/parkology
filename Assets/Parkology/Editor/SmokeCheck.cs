@@ -16,8 +16,8 @@ namespace Parkology.Editor
     [InitializeOnLoad]
     public static class SmokeCheck
     {
-        const int LastLevel = 8;
-        static readonly string[] keys = { "level", "coins", "boost_slot", "boost_hammer", "boost_hand", "boost_slot_intro", "boost_hammer_intro", "boost_hand_intro", "tutorial", "onboarded" };
+        const int LastLevel = 10;
+        static readonly string[] keys = { "level", "coins", "boost_slot", "boost_hammer", "boost_hand", "boost_slot_intro", "boost_hammer_intro", "boost_hand_intro", "tutorial", "onboarded", "tip_crate" };
         static double started, levelStarted;
         static int level, errors;
 
@@ -143,7 +143,11 @@ namespace Parkology.Editor
                     app.StartLevel(level);
                     return;
                 }
-                if (EditorApplication.timeSinceStartup - levelStarted > 120) Finish(false, "Level " + level + " timed out");
+                if (EditorApplication.timeSinceStartup - levelStarted > 120)
+                {
+                    Debug.Log("SMOKE_STATE " + board.Describe());
+                    Finish(false, "Level " + level + " timed out");
+                }
             }
             catch (Exception e)
             {

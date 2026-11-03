@@ -19,7 +19,7 @@ namespace Parkology
             return root;
         }
 
-        static void Add(GameObject root, string name, Mesh mesh, bool castShadows)
+        static GameObject Add(GameObject root, string name, Mesh mesh, bool castShadows, float gloss = 0.15f)
         {
             var go = new GameObject(name);
             go.transform.SetParent(root.transform, false);
@@ -31,9 +31,49 @@ namespace Parkology
             var block = new MaterialPropertyBlock();
             block.SetColor("_Color", Color.white);
             block.SetVector("_DecalRect", Vector4.zero);
-            block.SetFloat("_Gloss", 0.15f);
+            block.SetFloat("_Gloss", gloss);
             block.SetFloat("_Rim", 0f);
             r.SetPropertyBlock(block);
+            return go;
+        }
+
+        /// <summary>
+        /// A shipping crate that seals a whole column, ribbed like a container, with a little block of its key colour
+        /// sitting on the lid: clearing a column of that colour opens it.
+        /// </summary>
+        public static Transform Crate(Transform parent, Vector3 center, int slots, int key)
+        {
+            var root = new GameObject("Crate");
+            root.transform.SetParent(parent, false);
+            root.transform.localPosition = center;
+            var m = new MeshBuilder();
+            float len = slots - 0.08f;
+            Color body = MeshBuilder.Fixed(Palette.Crate), rib = MeshBuilder.Fixed(Palette.CrateRib), cap = MeshBuilder.Fixed(Palette.CrateEnd);
+            m.RoundedBox(new Vector3(0, 0.42f, 0), new Vector3(0.9f, 0.8f, len), 0.08f, 2, body);
+            for (float z = -len * 0.5f + 0.45f; z < len * 0.5f - 0.4f; z += 0.32f)
+                m.RoundedBox(new Vector3(0, 0.83f, z), new Vector3(0.74f, 0.04f, 0.09f), 0.02f, 1, rib);
+            foreach (float side in new[] { -1f, 1f })
+                m.RoundedBox(new Vector3(0, 0.44f, side * (len * 0.5f - 0.12f)), new Vector3(0.96f, 0.86f, 0.26f), 0.07f, 2, cap);
+            Add(root, "Box", m.Build("Crate"), true, 0.3f);
+            var badge = Buddy.Create(Kit.Block, root.transform, key, "Key");
+            badge.transform.localPosition = new Vector3(0, 0.86f, 0);
+            badge.transform.localRotation = Quaternion.LookRotation(Vector3.back);
+            badge.transform.localScale = Vector3.one * 0.62f;
+            badge.gameObject.AddComponent<Hover>();
+            return root.transform;
+        }
+
+        /// <summary>Gentle float so the key block on a crate catches the eye.</summary>
+        sealed class Hover : MonoBehaviour
+        {
+            float phase;
+            void Start() => phase = Random.value * 6f;
+            void Update()
+            {
+                var p = transform.localPosition;
+                p.y = 0.86f + Mathf.Abs(Mathf.Sin(Time.time * 2.4f + phase)) * 0.12f;
+                transform.localPosition = p;
+            }
         }
 
         static Mesh Ground(RingPath ring, float[] laneX, float laneHead)

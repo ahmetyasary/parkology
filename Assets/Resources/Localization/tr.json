@@ -179,6 +179,14 @@
     {
       "key": "tip_last",
       "value": "Son ısınma bölümü. Başarabilirsin!"
+    },
+    {
+      "key": "loop_full",
+      "value": "Döngü dolu! Bir bloğun park etmesini bekle."
+    },
+    {
+      "key": "tip_crate",
+      "value": "Kasalar, kapağındaki renkte bir sütunu temizleyince açılır!"
     }
   ]
 }

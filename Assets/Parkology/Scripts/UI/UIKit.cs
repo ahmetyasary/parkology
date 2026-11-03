@@ -226,6 +226,27 @@ namespace Parkology
         void Update() => transform.Rotate(0, 0, -speed * Time.unscaledDeltaTime);
     }
 
+    /// <summary>Keeps a UI node over a point that moves on screen (a spot in the 3D world).</summary>
+    public sealed class ScreenPin : MonoBehaviour
+    {
+        RectTransform space;
+        Func<Vector3> screen;
+
+        public void Track(RectTransform within, Func<Vector3> screenPoint)
+        {
+            space = within;
+            screen = screenPoint;
+            LateUpdate();
+        }
+
+        void LateUpdate()
+        {
+            if (space == null || screen == null) return;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(space, screen(), null, out Vector2 local))
+                ((RectTransform)transform).anchoredPosition = local; // the node is anchored at the centre of space
+        }
+    }
+
     public sealed class Bob : MonoBehaviour
     {
         public float amount = 0.04f, rate = 2.2f;

@@ -17,6 +17,7 @@ namespace Parkology
         readonly BoosterButton[] boosters = new BoosterButton[3];
         Text capacityText;
         Image capacityPill;
+        float blockedToastAt;
         RectTransform hint;
         Text hintText;
         LevelSpec spec;
@@ -31,7 +32,7 @@ namespace Parkology
             board = GameBoard.Create(world, Cam, spec, false);
             board.ConsumeBooster = UseBooster;
             board.CapacityChanged += OnCapacity;
-            board.Blocked += () => { if (capacityPill) { Tween.Punch(capacityPill.transform, 0.3f, 0.4f); capacityPill.color = new Color(1f, 0.6f, 0.6f); } };
+            board.Blocked += OnBlocked;
             board.Won += () => Tween.Delay(1.5f, ShowWin, board);
             board.Failed += () => Tween.Delay(0.7f, ShowFail, board);
             BuildHud();
@@ -48,11 +49,17 @@ namespace Parkology
 
             var title = UIKit.Text(safe, "level_n", 76, Color.white, new Vector2(0.5f, 1f), new Vector2(0, -92), new Vector2(460, 110), TextAnchor.MiddleCenter, UIKit.Ink, 7f, true, spec.Number);
             DropDown(title.transform, 0.2f);
-            // Loop capacity: blocks on the loop / allowed.
-            capacityPill = UIKit.Image(safe, "pill", new Vector2(0.5f, 1f), new Vector2(0, -200), new Vector2(260, 96), true);
-            UIKit.Image(capacityPill.transform, "train-engine", new Vector2(0f, 0.5f), new Vector2(52, 6), new Vector2(92, 72));
-            capacityText = UIKit.Text(capacityPill.transform, "0/5", 44, UIKit.Brown, new Vector2(0.5f, 0.5f), new Vector2(34, 4), new Vector2(160, 64), TextAnchor.MiddleCenter, null, 0f, false);
-            DropDown(capacityPill.transform, 0.35f);
+            // Loop capacity (blocks on the loop / allowed) on a signpost planted by the top-right bend of the loop.
+            var sign = UIKit.Node(safe, "Capacity Sign", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(10, 10));
+            sign.SetAsFirstSibling();
+            sign.gameObject.AddComponent<ScreenPin>().Track(safe, () => board != null ? board.SignScreenPoint : Vector3.zero);
+            var post = UIKit.Image(sign, "btn-grey", new Vector2(0.5f, 0.5f), new Vector2(0, 34), new Vector2(26, 76), true);
+            post.color = Palette.Sign * 0.8f;
+            capacityPill = UIKit.Image(sign, "btn-grey", new Vector2(0.5f, 0.5f), new Vector2(8, 104), new Vector2(190, 104), true);
+            capacityPill.color = Palette.Sign;
+            capacityPill.rectTransform.localRotation = Quaternion.Euler(0, 0, -7f);
+            capacityText = UIKit.Text(capacityPill.transform, "0/5", 54, Color.white, new Vector2(0.5f, 0.5f), new Vector2(0, 6), new Vector2(160, 76), TextAnchor.MiddleCenter, UIKit.Ink, 4f, false);
+            Tween.Scale(sign, new Vector3(1f, 0f, 1f), Vector3.one, 0.5f, Ease.OutBack, 0.6f);
 
             // Booster bar; the first levels keep the bottom free for the tutorial.
             for (int i = 0; i < boosters.Length; i++) boosters[i] = null;
@@ -117,9 +124,24 @@ namespace Parkology
             if (!capacityText) return;
             capacityText.text = active + "/" + capacity;
             bool full = active >= capacity;
-            capacityPill.color = full ? new Color(1f, 0.72f, 0.72f) : Color.white;
-            capacityText.color = full ? Palette.Danger : UIKit.Brown;
+            capacityPill.color = full ? Palette.Danger : Palette.Sign;
             Tween.Punch(capacityPill.transform, 0.12f, 0.3f);
+        }
+
+        /// <summary>A tap the loop has no room for: the sign shakes and a short warning explains why.</summary>
+        void OnBlocked()
+        {
+            if (capacityPill)
+            {
+                capacityPill.color = Palette.Danger;
+                var t = capacityPill.rectTransform;
+                Tween.Run(0.45f, e => { if (t) t.localRotation = Quaternion.Euler(0, 0, -7f + Mathf.Sin(e * Mathf.PI * 6f) * 12f * (1f - e)); }, Ease.Linear,
+                    () => { if (t) t.localRotation = Quaternion.Euler(0, 0, -7f); }, 0f, t, ("shake", t));
+                Tween.Punch(t, 0.25f, 0.4f);
+            }
+            if (Time.unscaledTime < blockedToastAt) return;
+            blockedToastAt = Time.unscaledTime + 2.5f;
+            Toast(Loc.Get("loop_full"));
         }
 
         void OnBooster(Booster kind)

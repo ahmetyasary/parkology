@@ -31,12 +31,14 @@ namespace Parkology
             public Buddy view;
             public State state;
             public int lane;
-            public float s, speed, entry;
+            public float s, speed, entry, land, held;
             public bool waiting;
+            /// <summary>Column this block waits above until the column's front block has room to roll out, or -1.</summary>
+            public int hold = -1;
         }
 
         public event Action<int, int> CapacityChanged;
-        public event Action Won, Failed, Dispatched, Blocked, Revealed;
+        public event Action Won, Failed, Dispatched, Blocked, Revealed, CrateOpened;
         /// <summary>A block parked in a column; true when the column was full and pushed its front block out.</summary>
         public event Action<int, bool> Joined;
         public event Action<int> Cleared;
@@ -59,10 +61,13 @@ namespace Parkology
         float[] laneX, dockTop, dockBottom;
         float laneHead, stopLine;
         List<Car>[] columns, lanes;
-        bool[] clearing;
+        bool[] clearing, hammered;
+        int[] crates, queued;
+        Transform[] crateViews;
         readonly List<Car> moving = new List<Car>();
+        readonly List<Vector2> taps = new List<Vector2>();
         int animations;
-        float stuckTime, autoTimer, introUntil, pace = 1f;
+        float stuckTime, autoTimer, autoStall, introUntil, pace = 1f;
         bool rushing;
         int lastActive = -1, lastCapacity = -1;
         readonly System.Random autoRng = new System.Random(7);
@@ -93,12 +98,16 @@ namespace Parkology
             ring = new RingPath(Vector3.zero, hw, hh, 1f);
             laneX = new float[spec.Lanes.Length];
             for (int i = 0; i < laneX.Length; i++) laneX[i] = (i - (laneX.Length - 1) * 0.5f) * LaneSpacing;
-            laneHead = -hh - 1.3f;
+            // a block waiting at the stop line keeps a full block length ahead of the next one in its depot
+            laneHead = -hh - 1.5f;
             stopLine = -hh - TurnRadius;
             WorldView.Build(content, ring, spec.Cols, spec.Slots, laneX, laneHead);
 
             columns = new List<Car>[spec.Cols];
             clearing = new bool[spec.Cols];
+            hammered = new bool[spec.Cols];
+            crates = new int[spec.Cols];
+            crateViews = new Transform[spec.Cols];
             dockTop = new float[spec.Cols];
             dockBottom = new float[spec.Cols];
             int count = 0;
@@ -107,6 +116,12 @@ namespace Parkology
                 columns[c] = new List<Car>();
                 dockTop[c] = ring.TopAt(ColX(c));
                 dockBottom[c] = ring.BottomAt(ColX(c));
+                crates[c] = spec.Crates != null ? spec.Crates[c] : -1;
+                if (crates[c] >= 0)
+                {
+                    crateViews[c] = WorldView.Crate(content, new Vector3(ColX(c), 0.04f, 0f), spec.Slots, crates[c]);
+                    DropIn(crateViews[c], crateViews[c].localPosition, 0.15f + c * 0.04f);
+                }
                 for (int k = 0; k < spec.Slots; k++)
                 {
                     int color = spec.Grid[c, k];
@@ -115,11 +130,14 @@ namespace Parkology
                     car.state = State.Parked;
                     car.view.transform.localRotation = Quaternion.LookRotation(Vector3.back);
                     columns[c].Add(car);
-                    DropIn(car.view.transform, SlotPos(c, k), 0.15f + (spec.Slots - 1 - k + c) * 0.04f);
+                    // blocks under a crate stay out of sight until it opens
+                    if (crates[c] >= 0) car.view.gameObject.SetActive(false);
+                    else DropIn(car.view.transform, SlotPos(c, k), 0.15f + (spec.Slots - 1 - k + c) * 0.04f);
                     count++;
                 }
             }
             lanes = new List<Car>[spec.Lanes.Length];
+            queued = new int[spec.Lanes.Length];
             for (int l = 0; l < lanes.Length; l++)
             {
                 lanes[l] = new List<Car>();
@@ -167,7 +185,7 @@ namespace Parkology
         /// <summary>Frames loop, lot and the front of the depots between the HUD and the booster bar.</summary>
         public void FitCamera()
         {
-            float bottom = Demo ? 0.22f : 0.13f, top = Demo ? 0.36f : 0.16f;
+            float bottom = Demo ? 0.22f : 0.13f, top = Demo ? 0.36f : 0.18f;
             Vector3 lo = new Vector3(-ring.HalfW - 0.7f, 0, laneHead - LaneGap * 1.7f);
             Vector3 hi = new Vector3(ring.HalfW + 0.7f, 0.9f, ring.HalfH + 0.75f);
             var ct = cam.transform;
@@ -240,6 +258,16 @@ namespace Parkology
             return -1;
         }
 
+        /// <summary>Screen point of the capacity signpost, planted on the outer edge of the loop's top-right straight.</summary>
+        public Vector3 SignScreenPoint => cam.WorldToScreenPoint(transform.TransformPoint(new Vector3(ring.HalfW - 1.7f, 0f, ring.HalfH + WorldView.RoadWidth * 0.5f)));
+
+        public bool FindCrate(out int column)
+        {
+            for (column = 0; column < Spec.Cols; column++) if (crates[column] >= 0) return true;
+            column = -1;
+            return false;
+        }
+
         public bool FindHidden(out int column, out int slot)
         {
             for (column = 0; column < Spec.Cols; column++)
@@ -264,6 +292,7 @@ namespace Parkology
             Finished = false;
             InputEnabled = true;
             stuckTime = 0f;
+            Array.Clear(queued, 0, queued.Length);
             foreach (var c in moving) c.view.SetRestFace(Face.Happy);
         }
 
@@ -272,8 +301,14 @@ namespace Parkology
         void Update()
         {
             float dt = Mathf.Min(Time.deltaTime, 0.05f);
-            if (!Finished && InputEnabled && !Demo && Time.time > introUntil && Pointer.Down(out Vector2 screen)) HandleTap(screen);
+            if (!Finished && InputEnabled && !Demo && Time.time > introUntil)
+            {
+                Pointer.Downs(taps);
+                foreach (var screen in taps) HandleTap(screen);
+            }
             if ((Demo || Autoplay) && !Finished && Time.time > introUntil) AutoStep(dt);
+            if (!Finished) FlushQueued();
+            FlushHammered();
             CheckRush(dt);
 
             for (int i = moving.Count - 1; i >= 0; i--)
@@ -285,7 +320,8 @@ namespace Parkology
             }
             CheckEnd(dt);
 
-            int active = ActiveCount;
+            // the sign counts queued sends too: they already have their place on the loop
+            int active = ActiveCount + QueuedTotal;
             if (active != lastActive || Capacity != lastCapacity)
             {
                 lastActive = active;
@@ -319,10 +355,58 @@ namespace Parkology
             if (Targeting == Booster.Hand)
             {
                 int index = Mathf.RoundToInt((laneHead - p.z) / LaneGap);
-                if (index >= 0 && index < lanes[lane].Count) Hand(lane, index);
+                if (index >= queued[lane] && index < lanes[lane].Count) Hand(lane, index);
                 return;
             }
-            Dispatch(lane);
+            Request(lane);
+        }
+
+        int QueuedTotal
+        {
+            get
+            {
+                int n = 0;
+                foreach (int q in queued) n += q;
+                return n;
+            }
+        }
+
+        /// <summary>
+        /// A tap on a lane. Quick taps are not lost: while the previous block is still pulling out, the next send
+        /// waits its turn. A tap that cannot be served (the loop is full) is refused with a shake and a warning.
+        /// </summary>
+        void Request(int lane)
+        {
+            if (lanes[lane].Count <= queued[lane]) return;
+            if (RoadFull(QueuedTotal))
+            {
+                var front = lanes[lane][queued[lane]];
+                front.view.Express(Face.Worried, 0.8f);
+                Wiggle(front.view.transform);
+                return;
+            }
+            if (queued[lane] == 0 && !LaneBusy(lane))
+            {
+                Dispatch(lane);
+                return;
+            }
+            // acknowledge the queued tap on the block that will go next
+            var next = lanes[lane][queued[lane]];
+            queued[lane]++;
+            next.view.Express(Face.Surprised, 0.5f);
+            next.view.Squash(0.12f);
+            Sfx.Play("go", 0.35f, 1.3f);
+            Haptics.Play(Haptic.Tap);
+        }
+
+        void FlushQueued()
+        {
+            for (int l = 0; l < lanes.Length; l++)
+            {
+                if (queued[l] == 0 || LaneBusy(l)) continue;
+                queued[l]--;
+                if (lanes[l].Count == 0 || !Dispatch(l)) queued[l] = 0;
+            }
         }
 
         bool FindLane(Vector3 p, out int lane)
@@ -347,9 +431,10 @@ namespace Parkology
             return false;
         }
 
-        bool RoadFull()
+        /// <summary>True (with a warning) when the loop has no room, counting sends that are already queued.</summary>
+        bool RoadFull(int reserved = 0)
         {
-            if (ActiveCount < Capacity) return false;
+            if (ActiveCount + reserved < Capacity) return false;
             if (!Demo)
             {
                 Sfx.Play("blocked", 0.8f);
@@ -364,7 +449,7 @@ namespace Parkology
         {
             if (lanes[lane].Count == 0 || LaneBusy(lane)) return false;
             var car = lanes[lane][0];
-            if (RoadFull())
+            if (RoadFull(QueuedTotal))
             {
                 car.view.Express(Face.Worried, 0.8f);
                 Wiggle(car.view.transform);
@@ -402,7 +487,8 @@ namespace Parkology
             {
                 var tr = lanes[lane][k].view.transform;
                 Vector3 from = tr.localPosition, to = LanePos(lane, k);
-                Tween.Run(0.3f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutBack, null, k * 0.04f, tr, ("lane", tr));
+                // the queue rolls up once the block ahead has pulled away, so the two never touch
+                Tween.Run(0.3f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutCubic, null, 0.22f + k * 0.04f, tr, ("lane", tr));
             }
         }
 
@@ -416,7 +502,7 @@ namespace Parkology
         /// <summary>Hand booster: any waiting block jumps to the front of its depot and drives onto the loop.</summary>
         void Hand(int lane, int index)
         {
-            if (LaneBusy(lane) || RoadFull()) return;
+            if (LaneBusy(lane) || queued[lane] > 0 || RoadFull(QueuedTotal)) return;
             if (ConsumeBooster == null || !ConsumeBooster(Booster.Hand)) return;
             Targeting = null;
             var car = lanes[lane][index];
@@ -448,7 +534,7 @@ namespace Parkology
         void Hammer(int c)
         {
             var col = columns[c];
-            if (col.Count == 0 || clearing[c]) return;
+            if (col.Count == 0 || clearing[c] || hammered[c] || crates[c] >= 0) return;
             if (ConsumeBooster == null || !ConsumeBooster(Booster.Hammer)) return;
             Targeting = null;
             var back = col[col.Count - 1];
@@ -486,12 +572,29 @@ namespace Parkology
                 }
                 Tween.Run(0.3f, e => { if (ht) ht.localScale = Vector3.one * (1f - e); }, Ease.InBack, () => { if (ht) Destroy(ht.gameObject); }, 0.15f, ht);
                 if (col.Count == 0 || clearing[c]) return;
+                // the front block rolls out as soon as the road below the column is free
+                hammered[c] = true;
+                animations++;
+                FlushHammered();
+            }, 0.05f, ht);
+        }
+
+        void FlushHammered()
+        {
+            for (int c = 0; c < Spec.Cols; c++)
+            {
+                if (!hammered[c]) continue;
+                var col = columns[c];
+                if (col.Count > 0 && !clearing[c] && !ExitClear(c)) continue;
+                hammered[c] = false;
+                animations--;
+                if (col.Count == 0 || clearing[c]) continue;
                 var front = col[0];
                 col.RemoveAt(0);
                 Eject(front, c);
                 Settle(c);
                 Reveal(c);
-            }, 0.05f, ht);
+            }
         }
 
         // ------------------------------------------------------------------ traffic
@@ -550,20 +653,43 @@ namespace Parkology
 
         bool InArc(Car o) => o.state == State.Merging && !o.waiting && o.entry > Straight;
 
-        /// <summary>The joining point must be free, and the next block behind must have room to brake.</summary>
-        bool MergeClear(Car car)
+        /// <summary>
+        /// The stretch of loop a block takes up or has claimed: blocks driving it, blocks turning in from a depot
+        /// and blocks rolling out of a column all count, so nothing lands on top of another block.
+        /// </summary>
+        bool OnRoad(Car o, out float s)
         {
-            float join = MergeParam(car.lane);
+            s = 0f;
+            if (o.state == State.Loop) s = o.s;
+            else if (InArc(o)) s = MergeParam(o.lane);
+            else if (o.state == State.Ejecting) s = o.land;
+            else return false;
+            return true;
+        }
+
+        /// <summary>A block may enter the loop at this point: room ahead, and the next block behind can still brake.</summary>
+        bool SpotClear(float at, Car self)
+        {
+            float behind = 1.2f + 0.3f * pace;
             foreach (var o in moving)
             {
-                if (o == car) continue;
-                if (InArc(o)) return false;
-                if (o.state != State.Loop) continue;
-                if (ring.Ahead(join, o.s) < CarHalf * 2f + 0.35f) return false;
-                if (ring.Ahead(o.s, join) < 1.5f) return false;
+                if (o == self || !OnRoad(o, out float s)) continue;
+                if (ring.Ahead(at, s) < CarHalf * 2f + 0.35f) return false;
+                if (ring.Ahead(s, at) < behind) return false;
             }
             return true;
         }
+
+        /// <summary>One block turns in at a time, and only where the loop has room.</summary>
+        bool MergeClear(Car car)
+        {
+            foreach (var o in moving)
+                if (o != car && InArc(o)) return false;
+            return SpotClear(MergeParam(car.lane), car);
+        }
+
+        /// <summary>The road below a column is free for its front block to roll out.</summary>
+        bool ExitClear(int c) => SpotClear(dockBottom[c], null);
 
         /// <summary>Car-following: slow down when the block ahead gets close.</summary>
         float FollowSpeed(Car car, float myS)
@@ -571,11 +697,7 @@ namespace Parkology
             float best = float.MaxValue;
             foreach (var o in moving)
             {
-                if (o == car) continue;
-                float os;
-                if (o.state == State.Loop) os = o.s;
-                else if (InArc(o)) os = MergeParam(o.lane);
-                else continue;
+                if (o == car || !OnRoad(o, out float os)) continue;
                 float gap = ring.Ahead(myS, os) - CarHalf * 2f;
                 if (gap > ring.Length - 1.5f) continue; // that block is just behind us
                 best = Mathf.Min(best, gap);
@@ -586,6 +708,19 @@ namespace Parkology
 
         void Drive(Car car, float dt)
         {
+            if (car.hold >= 0)
+            {
+                // Parked above a full column, waiting for the road below it to clear. If the wait drags on (or the
+                // column changed), the block gives up and takes another lap.
+                car.held += dt;
+                if (dt > 0f && CanJoin(car.hold, car.color) && car.held < 2.5f)
+                {
+                    if (ExitClear(car.hold)) TryJoin(car, car.hold);
+                    else car.speed = 0f;
+                    return;
+                }
+                car.hold = -1;
+            }
             float target = FollowSpeed(car, car.s);
             car.speed = Mathf.MoveTowards(car.speed, target, dt * pace * (target < car.speed ? 14f : 6f));
             float prev = car.s;
@@ -611,7 +746,7 @@ namespace Parkology
         bool HasBack(int c, int color)
         {
             var col = columns[c];
-            if (clearing[c] || col.Count == 0) return false;
+            if (clearing[c] || crates[c] >= 0 || col.Count == 0) return false;
             var back = col[col.Count - 1];
             return !back.hidden && back.color == color;
         }
@@ -622,18 +757,35 @@ namespace Parkology
         /// </summary>
         bool CanJoin(int c, int color)
         {
-            if (clearing[c]) return false;
+            if (clearing[c] || crates[c] >= 0 || hammered[c]) return false;
             if (columns[c].Count > 0) return HasBack(c, color);
             for (int o = 0; o < Spec.Cols; o++)
                 if (HasBack(o, color)) return false;
             return true;
         }
 
-        /// <summary>The block turns into the column from the top; a full column shoves its front block out.</summary>
+        /// <summary>
+        /// The block turns into the column from the top; a full column shoves its front block out. When the road below
+        /// a full column is busy, the block stops above the column and waits (true: the block is taken care of).
+        /// </summary>
         bool TryJoin(Car car, int c)
         {
             if (!CanJoin(c, car.color)) return false;
             var col = columns[c];
+            if (col.Count >= Spec.Slots && !ExitClear(c))
+            {
+                if (car.hold != c)
+                {
+                    car.hold = c;
+                    car.held = 0f;
+                    car.s = dockTop[c];
+                    car.speed = 0f;
+                    car.view.transform.localPosition = ring.Evaluate(car.s, out _) + Vector3.up * 0.02f;
+                    car.view.Body.localPosition = Vector3.zero;
+                }
+                return true;
+            }
+            car.hold = -1;
             moving.Remove(car);
             car.state = State.Parking;
             col.Add(car);
@@ -701,6 +853,8 @@ namespace Parkology
         {
             car.state = State.Ejecting;
             car.lane = -1;
+            car.land = dockBottom[c];
+            car.hold = -1;
             moving.Add(car);
             var tr = car.view.transform;
             Vector3 from = tr.localPosition;
@@ -728,7 +882,7 @@ namespace Parkology
         void Reveal(int c)
         {
             var col = columns[c];
-            if (col.Count == 0) return;
+            if (col.Count == 0 || crates[c] >= 0) return;
             foreach (var car in new[] { col[0], col[col.Count - 1] })
                 if (car.hidden) RevealCar(car, 0.1f);
         }
@@ -767,7 +921,7 @@ namespace Parkology
         void CheckSorted(int c)
         {
             var col = columns[c];
-            if (clearing[c] || col.Count != Spec.Slots) return;
+            if (clearing[c] || crates[c] >= 0 || col.Count != Spec.Slots) return;
             foreach (var car in col)
                 if (car.hidden || car.color != col[0].color || car.state != State.Parked) return;
             clearing[c] = true;
@@ -803,7 +957,48 @@ namespace Parkology
                     BlocksLeft -= cars.Length;
                     Cleared?.Invoke(c);
                     Fx.Sparkle(transform.TransformPoint(SlotPos(c, Spec.Slots / 2) + Vector3.up * 0.8f), 12);
+                    OpenCrates(cars[0].color);
                 }, 0.25f + (cars.Length - 1 - k) * 0.07f, tr, ("clear", tr));
+            }
+        }
+
+        /// <summary>Clearing a column opens every crate marked with its colour: the crate lifts off and the blocks inside drop in.</summary>
+        void OpenCrates(int color)
+        {
+            for (int c = 0; c < Spec.Cols; c++)
+            {
+                if (crates[c] != color) continue;
+                int col = c;
+                crates[c] = -1;
+                var view = crateViews[c];
+                crateViews[c] = null;
+                animations++;
+                if (!Demo)
+                {
+                    Sfx.Play("complete", 0.6f, 1.25f);
+                    Haptics.Play(Haptic.Reveal);
+                }
+                Fx.Burst(transform.TransformPoint(SlotPos(c, Spec.Slots / 2) + Vector3.up * 0.9f), new Color(0.55f, 0.6f, 1f), 14, 3f);
+                Vector3 from = view.localPosition;
+                Tween.Run(0.45f, e =>
+                {
+                    if (!view) return;
+                    view.localPosition = from + Vector3.up * (e * 3f);
+                    view.localScale = new Vector3(1f + e * 0.2f, Mathf.Max(0.01f, 1f - e), 1f + e * 0.2f);
+                }, Ease.InCubic, () => { if (view) Destroy(view.gameObject); }, 0f, view);
+                var cars = columns[c];
+                for (int k = 0; k < cars.Count; k++)
+                {
+                    cars[k].view.gameObject.SetActive(true);
+                    DropIn(cars[k].view.transform, SlotPos(c, k), 0.25f + (cars.Count - 1 - k) * 0.05f);
+                }
+                Tween.Delay(0.9f, () =>
+                {
+                    animations--;
+                    Reveal(col);
+                    CheckSorted(col);
+                }, this);
+                CrateOpened?.Invoke();
             }
         }
 
@@ -889,8 +1084,28 @@ namespace Parkology
                 any.Add(l);
                 if (CanAnyJoin(lanes[l][0].color)) good.Add(l);
             }
+            // with nothing that can park, the bot keeps a free slot for a while, then fills the loop like a player would
+            autoStall = good.Count > 0 ? 0f : autoStall + autoTimer;
             if (good.Count > 0) Dispatch(good[autoRng.Next(good.Count)]);
-            else if (any.Count > 0 && ActiveCount <= Capacity - 2) Dispatch(any[autoRng.Next(any.Count)]);
+            else if (any.Count > 0 && (ActiveCount <= Capacity - 2 || autoStall > 4f)) Dispatch(any[autoRng.Next(any.Count)]);
+        }
+
+        /// <summary>One-line snapshot for test logs.</summary>
+        public string Describe()
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append("cap=").Append(Capacity).Append(" active=").Append(ActiveCount).Append(" anim=").Append(animations).Append(" cols=");
+            for (int c = 0; c < Spec.Cols; c++)
+            {
+                sb.Append(crates[c] >= 0 ? "[crate" + crates[c] + ":" : "[");
+                foreach (var car in columns[c]) sb.Append(car.color);
+                sb.Append(']');
+            }
+            sb.Append(" lanes=");
+            foreach (var l in lanes) sb.Append(l.Count).Append('/');
+            sb.Append(" moving=");
+            foreach (var car in moving) sb.Append(car.color).Append(':').Append(car.state).Append(car.hold >= 0 ? "@hold" + car.hold : "").Append(' ');
+            return sb.ToString();
         }
 
         void OnDestroy() => Fx.Clear();

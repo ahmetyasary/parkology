@@ -33,7 +33,15 @@ namespace Parkology
             shownTips.Clear();
             coachQueue.Clear();
             coaching = !Save.Onboarded && spec.Number <= LevelGenerator.OnboardingLevels;
-            if (!coaching) return;
+            if (!coaching)
+            {
+                // After the warm-up the bubble only returns to introduce a new obstacle, once.
+                if (spec.Crates == null || PlayerPrefs.GetInt("tip_crate", 0) == 1) return;
+                coaching = true;
+                board.Won += EndCoaching;
+                board.Failed += EndCoaching;
+                return;
+            }
             board.Dispatched += OnCoachDispatched;
             board.Joined += OnCoachJoined;
             board.Cleared += OnCoachCleared;
@@ -46,6 +54,14 @@ namespace Parkology
         void StartCoaching()
         {
             if (!coaching || board == null) return;
+            if (spec.Number > LevelGenerator.OnboardingLevels)
+            {
+                if (!board.FindCrate(out int crate)) return;
+                PlayerPrefs.SetInt("tip_crate", 1);
+                PlayerPrefs.Save();
+                Tip("tip_crate", 6f, true, () => MarkScreen(board.SlotScreenPoint(crate, spec.Slots / 2), true));
+                return;
+            }
             switch (spec.Number)
             {
                 case 1:

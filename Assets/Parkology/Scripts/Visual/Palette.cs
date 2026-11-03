@@ -35,6 +35,10 @@ namespace Parkology
         public static readonly Color SkyBottom = Hex(0x4867F0);
         public static readonly Color Gold = Hex(0xFFC83A);
         public static readonly Color Danger = Hex(0xF23B4A);
+        public static readonly Color Crate = Hex(0x7F86F0);
+        public static readonly Color CrateRib = Hex(0xA9B0FF);
+        public static readonly Color CrateEnd = Hex(0x5A5FD0);
+        public static readonly Color Sign = Hex(0x3A4170);
 
         public static Color Block(int index) => index < 0 ? Mystery : Blocks[index % Blocks.Length];
     }

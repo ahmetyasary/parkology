@@ -179,6 +179,14 @@
     {
       "key": "tip_last",
       "value": "Last warm-up level. You've got this!"
+    },
+    {
+      "key": "loop_full",
+      "value": "The loop is full! Wait for a block to park."
+    },
+    {
+      "key": "tip_crate",
+      "value": "Crates open when you clear a column of the colour on their lid!"
     }
   ]
 }
