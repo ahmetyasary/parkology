@@ -76,6 +76,8 @@ namespace Parkology
         readonly System.Random autoRng = new System.Random(7);
 
         float Straight => stopLine - laneHead;
+        /// <summary>Where a block waits for a gap: its nose just short of the road, so passing traffic never touches it.</summary>
+        float WaitAt => Straight - 0.5f;
         float Arc => Mathf.PI * 0.5f * TurnRadius;
 
         // ------------------------------------------------------------------ setup
@@ -101,8 +103,8 @@ namespace Parkology
             ring = new RingPath(Vector3.zero, hw, hh, 1f);
             laneX = new float[spec.Lanes.Length];
             for (int i = 0; i < laneX.Length; i++) laneX[i] = (i - (laneX.Length - 1) * 0.5f) * LaneSpacing;
-            // a block waiting at the stop line keeps a full block length ahead of the next one in its depot
-            laneHead = -hh - 1.5f;
+            // a block waiting for a gap stays off the road and a full block length ahead of the next one in its depot
+            laneHead = -hh - 2f;
             stopLine = -hh - TurnRadius;
             WorldView.Build(content, ring, spec.Cols, spec.Slots, laneX, laneHead);
 
@@ -661,10 +663,13 @@ namespace Parkology
 
         float MergeParam(int lane) => ring.BottomAt(laneX[lane] - TurnRadius);
 
-        /// <summary>Straight up out of the depot to the stop line, then a quarter turn left onto the bottom straight.</summary>
+        /// <summary>
+        /// Straight up out of the depot to the waiting point short of the road, then (once the loop has a gap) on to the
+        /// stop line and a quarter turn left onto the bottom straight.
+        /// </summary>
         void Merge(Car car, float dt)
         {
-            if (!car.waiting && car.entry >= Straight && car.entry < Straight + 0.0001f) car.waiting = true;
+            if (!car.waiting && car.entry >= WaitAt && car.entry < WaitAt + 0.0001f) car.waiting = true;
             if (car.waiting)
             {
                 if (!MergeClear(car))
@@ -674,12 +679,12 @@ namespace Parkology
                     return;
                 }
                 car.waiting = false;
-                car.entry = Straight + 0.0002f;
+                car.entry = WaitAt + 0.0002f;
             }
-            float target = car.entry < Straight ? Speed : FollowSpeed(car, MergeParam(car.lane) - (Straight + Arc - car.entry));
+            float target = car.entry < WaitAt ? Speed : FollowSpeed(car, MergeParam(car.lane) - (Straight + Arc - car.entry));
             car.speed = Mathf.MoveTowards(car.speed, target, dt * 8f);
             float next = car.entry + car.speed * dt;
-            car.entry = car.entry < Straight ? Mathf.Min(next, Straight) : next;
+            car.entry = car.entry < WaitAt ? Mathf.Min(next, WaitAt) : next;
             if (car.entry >= Straight + Arc)
             {
                 car.state = State.Loop;
@@ -735,7 +740,8 @@ namespace Parkology
             tr.localRotation = Quaternion.Slerp(tr.localRotation, Quaternion.LookRotation(heading), Mathf.Clamp01(dt * 20f));
         }
 
-        bool InArc(Car o) => o.state == State.Merging && !o.waiting && o.entry > Straight;
+        /// <summary>A block that has left its waiting point and is committed to turning onto the loop.</summary>
+        bool InArc(Car o) => o.state == State.Merging && !o.waiting && o.entry > WaitAt;
 
         /// <summary>
         /// The stretch of loop a block takes up or has claimed: blocks driving it, blocks turning in from a depot
