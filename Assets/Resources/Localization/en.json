@@ -187,6 +187,10 @@
     {
       "key": "tip_crate",
       "value": "Crates open when you clear a column of the colour on their lid!"
+    },
+    {
+      "key": "not_next",
+      "value": "Only the front block can go! Tap the lane's first block."
     }
   ]
 }

@@ -39,7 +39,7 @@ Shader "Parkology/Plastic" {
             half wrap = saturate(ndl * 0.6 + 0.4);
             half3 h = normalize(lightDir + viewDir);
             half spec = pow(saturate(dot(s.Normal, h)), 48.0) * s.Gloss;
-            half shadow = lerp(0.55, 1.0, atten);
+            half shadow = lerp(0.42, 1.0, atten);
             half4 c;
             c.rgb = (s.Albedo * _LightColor0.rgb * wrap + _LightColor0.rgb * spec * 0.3) * shadow;
             c.a = 1;

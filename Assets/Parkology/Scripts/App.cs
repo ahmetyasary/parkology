@@ -25,9 +25,10 @@ namespace Parkology
         {
             Instance = this;
             Application.targetFrameRate = 60;
-            Input.multiTouchEnabled = false;
+            // quick taps often land while the previous finger is still down; every touch is read (Pointer)
+            Input.multiTouchEnabled = true;
             QualitySettings.shadows = ShadowQuality.All;
-            QualitySettings.shadowResolution = ShadowResolution.Medium;
+            QualitySettings.shadowResolution = ShadowResolution.High;
             QualitySettings.shadowDistance = 60f;
             QualitySettings.shadowCascades = 1;
             QualitySettings.antiAliasing = 4;
@@ -53,8 +54,7 @@ namespace Parkology
             camGo.tag = "MainCamera";
             camGo.transform.SetParent(rig, false);
             Cam = camGo.AddComponent<Camera>();
-            Cam.orthographic = true;
-            Cam.orthographicSize = 8f;
+            Cam.orthographic = false; // GameBoard.FitCamera sets the lens
             Cam.nearClipPlane = 0.5f;
             Cam.farClipPlane = 120f;
             Cam.clearFlags = CameraClearFlags.SolidColor;
@@ -64,13 +64,14 @@ namespace Parkology
 
             var lightGo = new GameObject("Sun");
             lightGo.transform.SetParent(transform, false);
-            lightGo.transform.rotation = Quaternion.Euler(52f, -32f, 0f);
+            // a lower, side-on sun casts longer shadows so blocks read as solid objects standing on the board
+            lightGo.transform.rotation = Quaternion.Euler(46f, -38f, 0f);
             var sun = lightGo.AddComponent<Light>();
             sun.type = LightType.Directional;
             sun.color = new Color(1f, 0.97f, 0.92f);
             sun.intensity = 0.88f;
             sun.shadows = LightShadows.Soft;
-            sun.shadowStrength = 0.45f;
+            sun.shadowStrength = 0.7f;
             sun.shadowBias = 0.03f;
             sun.shadowNormalBias = 0.2f;
 

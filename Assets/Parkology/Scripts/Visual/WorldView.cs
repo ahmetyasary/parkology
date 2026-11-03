@@ -7,6 +7,9 @@ namespace Parkology
     public static class WorldView
     {
         public const float RoadWidth = 1.05f;
+        /// <summary>Top of the raised parking plate; parked blocks stand on it.</summary>
+        public const float LotTop = 0.14f;
+        const float CurbHeight = 0.13f, CurbWidth = 0.14f;
 
         public static GameObject Build(Transform parent, RingPath ring, int cols, int rows, float[] laneX, float laneHead)
         {
@@ -118,6 +121,26 @@ namespace Parkology
             m.Band(inner, outer, asphalt, true);
             m.Wall(outer, -0.02f, edge, true, 1f);
 
+            // Striped kerb along the outside of the loop, open where the depot lanes join the bottom straight.
+            float laneEdge = laneX[laneX.Length - 1] + hw;
+            float bottomZ = ring.Center.z - ring.HalfH;
+            for (int i = 0; i < steps; i++)
+            {
+                int j = (i + 1) % steps;
+                Vector3 a = outer[i], b = outer[j];
+                if (a.z < bottomZ + 0.3f && b.z < bottomZ + 0.3f && Mathf.Abs(a.x) < laneEdge && Mathf.Abs(b.x) < laneEdge) continue;
+                Vector3 na = (outer[i] - inner[i]).normalized, nb = (outer[j] - inner[j]).normalized;
+                Kerb(m, a, b, na, nb, (int)(ring.Length * i / steps / 0.5f) % 2 == 0);
+            }
+            // Kerbs down both outer sides of the depot block.
+            foreach (float side in new[] { -1f, 1f })
+            {
+                float x = side * laneEdge, z0 = bottomZ - hw, z1 = laneHead - 12f;
+                Vector3 n = new Vector3(side, 0, 0);
+                for (float z = z0; z > z1; z -= 0.5f)
+                    Kerb(m, new Vector3(x, y, z), new Vector3(x, y, Mathf.Max(z - 0.5f, z1)), n, n, Mathf.RoundToInt((z0 - z) / 0.5f) % 2 == 0);
+            }
+
             // Dashed centre line
             for (float s = 0.2f; s < ring.Length - 0.3f; s += 0.62f)
             {
@@ -139,15 +162,28 @@ namespace Parkology
             return m.Build("Roads");
         }
 
+        /// <summary>One kerb stone from a to b (on the road edge), built outward along na/nb.</summary>
+        static void Kerb(MeshBuilder m, Vector3 a, Vector3 b, Vector3 na, Vector3 nb, bool stripe)
+        {
+            Color c = MeshBuilder.Fixed(stripe ? Palette.Kerb : Palette.Cream);
+            Vector3 up = Vector3.up * CurbHeight;
+            Vector3 a2 = a + na * CurbWidth, b2 = b + nb * CurbWidth;
+            Vector3 inward = -(na + nb).normalized;
+            // the road-facing side catches a little less light than the top
+            m.Panel(a, a + up, b + up, b, inward, MeshBuilder.Fixed((stripe ? Palette.Kerb : Palette.Cream) * 0.88f));
+            m.Panel(a + up, a2 + up, b2 + up, b + up, Vector3.up, c);
+            m.Panel(a2, a2 + up, b2 + up, b2, -inward, c);
+        }
+
         static Mesh Lot(RingPath ring, int cols, int rows)
         {
             var m = new MeshBuilder();
             Vector3 c = ring.Center;
             float w = ring.HalfW - RoadWidth * 0.5f - 0.15f, h = ring.HalfH - RoadWidth * 0.5f - 0.15f;
             // Raised plate with rounded corners.
-            m.RoundedBox(c + new Vector3(0, -0.02f, 0), new Vector3(w * 2f, 0.12f, h * 2f), Mathf.Min(0.5f, ring.Radius - RoadWidth * 0.5f + 0.06f), 2, MeshBuilder.Fixed(Palette.Lot));
+            m.RoundedBox(c + new Vector3(0, (LotTop - 0.1f) * 0.5f, 0), new Vector3(w * 2f, LotTop + 0.1f, h * 2f), Mathf.Min(0.5f, ring.Radius - RoadWidth * 0.5f + 0.06f), 2, MeshBuilder.Fixed(Palette.Lot));
             Color lineC = MeshBuilder.Fixed(Palette.LotLine);
-            float y = 0.045f;
+            float y = LotTop + 0.005f;
             // Column separators, and pickup arrows at both ends of every column.
             for (int i = 0; i <= cols; i++)
             {

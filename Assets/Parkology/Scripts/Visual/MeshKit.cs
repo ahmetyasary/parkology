@@ -135,6 +135,14 @@ namespace Parkology
             Quad(s, s + 1, s + 2, s + 3, Vector3.up);
         }
 
+        /// <summary>Flat-shaded quad facing along normal.</summary>
+        public void Panel(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 normal, Color color)
+        {
+            int s = verts.Count;
+            Add(a, normal, color); Add(b, normal, color); Add(c, normal, color); Add(d, normal, color);
+            Quad(s, s + 1, s + 2, s + 3, normal);
+        }
+
         /// <summary>Flat polygon strip (pairs of inner/outer points) at height y, normal up.</summary>
         public void Band(IList<Vector3> inner, IList<Vector3> outer, Color color, bool closed)
         {

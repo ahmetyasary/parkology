@@ -187,6 +187,10 @@
     {
       "key": "tip_crate",
       "value": "Kasalar, kapağındaki renkte bir sütunu temizleyince açılır!"
+    },
+    {
+      "key": "not_next",
+      "value": "Sadece en öndeki blok gidebilir! Şeridin ilk bloğuna dokun."
     }
   ]
 }

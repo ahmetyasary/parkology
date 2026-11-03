@@ -33,6 +33,7 @@ namespace Parkology
             board.ConsumeBooster = UseBooster;
             board.CapacityChanged += OnCapacity;
             board.Blocked += OnBlocked;
+            board.NotNext += () => Warn("not_next");
             board.Won += () => Tween.Delay(1.5f, ShowWin, board);
             board.Failed += () => Tween.Delay(0.7f, ShowFail, board);
             BuildHud();
@@ -49,7 +50,7 @@ namespace Parkology
 
             var title = UIKit.Text(safe, "level_n", 76, Color.white, new Vector2(0.5f, 1f), new Vector2(0, -92), new Vector2(460, 110), TextAnchor.MiddleCenter, UIKit.Ink, 7f, true, spec.Number);
             DropDown(title.transform, 0.2f);
-            // Loop capacity (blocks on the loop / allowed) on a signpost planted by the top-right bend of the loop.
+            // Loop capacity (blocks on the loop / allowed) on a signpost planted right of the depot lanes.
             var sign = UIKit.Node(safe, "Capacity Sign", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(10, 10));
             sign.SetAsFirstSibling();
             sign.gameObject.AddComponent<ScreenPin>().Track(safe, () => board != null ? board.SignScreenPoint : Vector3.zero);
@@ -139,9 +140,15 @@ namespace Parkology
                     () => { if (t) t.localRotation = Quaternion.Euler(0, 0, -7f); }, 0f, t, ("shake", t));
                 Tween.Punch(t, 0.25f, 0.4f);
             }
+            Warn("loop_full");
+        }
+
+        /// <summary>Short warning toast, at most one every few seconds so repeated taps don't stack them.</summary>
+        void Warn(string key)
+        {
             if (Time.unscaledTime < blockedToastAt) return;
             blockedToastAt = Time.unscaledTime + 2.5f;
-            Toast(Loc.Get("loop_full"));
+            Toast(Loc.Get(key));
         }
 
         void OnBooster(Booster kind)

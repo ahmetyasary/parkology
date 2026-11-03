@@ -32,6 +32,7 @@ namespace Parkology
             public State state;
             public int lane;
             public float s, speed, entry, land, held;
+            public float yaw, roll, pitch, lastSpeed;
             public bool waiting;
             /// <summary>Column this block waits above until the column's front block has room to roll out, or -1.</summary>
             public int hold = -1;
@@ -39,6 +40,8 @@ namespace Parkology
 
         public event Action<int, int> CapacityChanged;
         public event Action Won, Failed, Dispatched, Blocked, Revealed, CrateOpened;
+        /// <summary>A tap on a waiting block that is not next in its lane.</summary>
+        public event Action NotNext;
         /// <summary>A block parked in a column; true when the column was full and pushed its front block out.</summary>
         public event Action<int, bool> Joined;
         public event Action<int> Cleared;
@@ -119,7 +122,7 @@ namespace Parkology
                 crates[c] = spec.Crates != null ? spec.Crates[c] : -1;
                 if (crates[c] >= 0)
                 {
-                    crateViews[c] = WorldView.Crate(content, new Vector3(ColX(c), 0.04f, 0f), spec.Slots, crates[c]);
+                    crateViews[c] = WorldView.Crate(content, new Vector3(ColX(c), WorldView.LotTop, 0f), spec.Slots, crates[c]);
                     DropIn(crateViews[c], crateViews[c].localPosition, 0.15f + c * 0.04f);
                 }
                 for (int k = 0; k < spec.Slots; k++)
@@ -179,34 +182,75 @@ namespace Parkology
 
         float ColX(int c) => c - (Spec.Cols - 1) * 0.5f;
         /// <summary>Slot 0 is the front (bottom) of the column.</summary>
-        Vector3 SlotPos(int c, int k) => new Vector3(ColX(c), 0.04f, k - (Spec.Slots - 1) * 0.5f);
+        Vector3 SlotPos(int c, int k) => new Vector3(ColX(c), WorldView.LotTop, k - (Spec.Slots - 1) * 0.5f);
         Vector3 LanePos(int lane, int index) => new Vector3(laneX[lane], 0.02f, laneHead - index * LaneGap);
 
-        /// <summary>Frames loop, lot and the front of the depots between the HUD and the booster bar.</summary>
+        /// <summary>Perspective lens and tilt: a toy table seen from a low angle, so blocks show their sides and depth.</summary>
+        const float Fov = 30f, Tilt = 52f;
+
+        /// <summary>
+        /// Frames loop, lot and the front of the depots between the HUD and the booster bar: the closest camera
+        /// distance at which everything fits. In play the loop sits right under the HUD and the depots run off the
+        /// bottom (like the reference); the home-screen demo is centred in its band.
+        /// </summary>
         public void FitCamera()
         {
             float bottom = Demo ? 0.22f : 0.13f, top = Demo ? 0.36f : 0.18f;
             Vector3 lo = new Vector3(-ring.HalfW - 0.7f, 0, laneHead - LaneGap * 1.7f);
             Vector3 hi = new Vector3(ring.HalfW + 0.7f, 0.9f, ring.HalfH + 0.75f);
-            var ct = cam.transform;
-            ct.localRotation = Quaternion.Euler(57f, 0f, 0f);
-            ct.localPosition = -ct.forward * 40f;
-            float ymin = float.MaxValue, ymax = float.MinValue, xmax = 0f;
+            var corners = new Vector3[8];
             for (int i = 0; i < 8; i++)
+                corners[i] = new Vector3((i & 1) == 0 ? lo.x : hi.x, (i & 2) == 0 ? lo.y : hi.y, (i & 4) == 0 ? lo.z : hi.z);
+            cam.orthographic = false;
+            cam.fieldOfView = Fov;
+            var rot = Quaternion.Euler(Tilt, 0f, 0f);
+            Vector3 fwd = rot * Vector3.forward, up = rot * Vector3.up, right = rot * Vector3.right, center = (lo + hi) * 0.5f;
+            float tan = Mathf.Tan(Fov * 0.5f * Mathf.Deg2Rad), aspect = cam.aspect;
+
+            // Viewport extents of the corners for a camera d back from the centre and raised by shift.
+            void Extents(float d, float shift, out float xmax, out float ymin, out float ymax)
             {
-                var p = new Vector3((i & 1) == 0 ? lo.x : hi.x, (i & 2) == 0 ? lo.y : hi.y, (i & 4) == 0 ? lo.z : hi.z);
-                var local = ct.InverseTransformPoint(rig.TransformPoint(p));
-                ymin = Mathf.Min(ymin, local.y);
-                ymax = Mathf.Max(ymax, local.y);
-                xmax = Mathf.Max(xmax, Mathf.Abs(local.x));
+                Vector3 eye = center - fwd * d + up * shift;
+                xmax = 0f; ymin = float.MaxValue; ymax = float.MinValue;
+                foreach (var p in corners)
+                {
+                    Vector3 v = p - eye;
+                    float z = Vector3.Dot(v, fwd);
+                    xmax = Mathf.Max(xmax, Mathf.Abs(Vector3.Dot(v, right) / (z * 2f * tan * aspect)));
+                    float y = 0.5f + Vector3.Dot(v, up) / (z * 2f * tan);
+                    ymin = Mathf.Min(ymin, y);
+                    ymax = Mathf.Max(ymax, y);
+                }
             }
-            float size = Mathf.Max(xmax / cam.aspect, (ymax - ymin) / (2f * (1f - top - bottom)));
-            cam.orthographicSize = size;
-            // In play the loop sits right under the HUD and the depots run off the bottom (like the reference);
-            // the home-screen demo is centred in its band.
-            float band = (bottom + (1f - top)) * 0.5f;
-            float center = Demo ? (ymin + ymax) * 0.5f - (band - 0.5f) * 2f * size : ymax - (0.5f - top) * 2f * size;
-            ct.localPosition += ct.up * center;
+            // The shift that puts the top under the HUD (play) or centres the board in its band (demo).
+            float Align(float d)
+            {
+                float a = -60f, b = 60f;
+                for (int i = 0; i < 40; i++)
+                {
+                    float m = (a + b) * 0.5f;
+                    Extents(d, m, out _, out float y0, out float y1);
+                    float at = Demo ? (y0 + y1) * 0.5f : y1, goal = Demo ? (bottom + 1f - top) * 0.5f : 1f - top;
+                    if (at > goal) a = m; else b = m; // raising the camera moves everything down the screen
+                }
+                return (a + b) * 0.5f;
+            }
+            bool Fits(float d, out float shift)
+            {
+                shift = Align(d);
+                Extents(d, shift, out float xmax, out float y0, out float y1);
+                return xmax <= 0.5f && y0 >= bottom - 0.001f && y1 <= 1f - top + 0.001f;
+            }
+            float near = 4f, far = 300f;
+            for (int i = 0; i < 40; i++)
+            {
+                float m = (near + far) * 0.5f;
+                if (Fits(m, out _)) far = m; else near = m;
+            }
+            Fits(far, out float s);
+            var ct = cam.transform;
+            ct.localRotation = rot;
+            ct.localPosition = center - fwd * far + up * s;
         }
 
         // ------------------------------------------------------------------ queries for the UI
@@ -258,8 +302,9 @@ namespace Parkology
             return -1;
         }
 
-        /// <summary>Screen point of the capacity signpost, planted on the outer edge of the loop's top-right straight.</summary>
-        public Vector3 SignScreenPoint => cam.WorldToScreenPoint(transform.TransformPoint(new Vector3(ring.HalfW - 1.7f, 0f, ring.HalfH + WorldView.RoadWidth * 0.5f)));
+        /// <summary>Screen point of the capacity signpost, planted in the grass right of the depot lanes, below the loop.</summary>
+        public Vector3 SignScreenPoint => cam.WorldToScreenPoint(transform.TransformPoint(
+            new Vector3(laneX[laneX.Length - 1] + WorldView.RoadWidth * 0.5f + 0.95f, 0f, -ring.HalfH - WorldView.RoadWidth * 0.5f - 1.6f)));
 
         public bool FindCrate(out int column)
         {
@@ -352,10 +397,24 @@ namespace Parkology
                 return;
             }
             if (!FindLane(p, out int lane)) return;
+            int index = Mathf.Max(0, Mathf.RoundToInt((laneHead - p.z) / LaneGap));
             if (Targeting == Booster.Hand)
             {
-                int index = Mathf.RoundToInt((laneHead - p.z) / LaneGap);
                 if (index >= queued[lane] && index < lanes[lane].Count) Hand(lane, index);
+                return;
+            }
+            // Only the next block in a lane can go: a tap on one further back says no instead of sending the front one.
+            if (index > queued[lane] && index < lanes[lane].Count)
+            {
+                var car = lanes[lane][index];
+                car.view.Express(Face.Worried, 1f);
+                Wiggle(car.view.transform);
+                if (!Demo)
+                {
+                    Sfx.Play("blocked", 0.6f);
+                    Haptics.Play(Haptic.Warning);
+                }
+                NotNext?.Invoke();
                 return;
             }
             Request(lane);
@@ -469,6 +528,7 @@ namespace Parkology
             car.speed = Speed * 0.6f;
             car.waiting = false;
             Tween.Stop(("lane", car.view.transform));
+            ResetLean(car);
             moving.Add(car);
             car.view.Express(Face.Surprised, 0.5f);
             car.view.Squash(0.15f);
@@ -628,6 +688,30 @@ namespace Parkology
                 return;
             }
             Place(car, dt);
+            Lean(car, dt);
+        }
+
+        /// <summary>Body roll in turns and pitch when speeding up or braking, like a toy car on soft springs.</summary>
+        void Lean(Car car, float dt)
+        {
+            if (dt <= 0f) return;
+            float yaw = car.view.transform.localEulerAngles.y;
+            float turn = Mathf.DeltaAngle(car.yaw, yaw) / dt;
+            float accel = (car.speed - car.lastSpeed) / dt;
+            car.yaw = yaw;
+            car.lastSpeed = car.speed;
+            float k = Mathf.Clamp01(dt * 10f);
+            car.roll = Mathf.Lerp(car.roll, Mathf.Clamp(turn * 0.045f, -9f, 9f), k);
+            car.pitch = Mathf.Lerp(car.pitch, Mathf.Clamp(-accel * 1.2f, -7f, 7f), k);
+            car.view.Body.localRotation = Quaternion.Euler(car.pitch, 0f, car.roll);
+        }
+
+        void ResetLean(Car car)
+        {
+            car.yaw = car.view.transform.localEulerAngles.y;
+            car.lastSpeed = car.speed;
+            car.roll = car.pitch = 0f;
+            car.view.Body.localRotation = Quaternion.identity;
         }
 
         void Place(Car car, float dt)
@@ -731,6 +815,7 @@ namespace Parkology
             float bob = car.speed > 0.1f ? Mathf.Abs(Mathf.Sin(Time.time * 14f + car.color)) * 0.025f : 0f;
             car.view.Body.localPosition = new Vector3(0, bob, 0);
             if (dt <= 0f) return;
+            Lean(car, dt);
             for (int c = 0; c < Spec.Cols; c++)
                 if (Crossed(prev, car.s, dockTop[c]) && TryJoin(car, c)) return;
         }
@@ -791,6 +876,7 @@ namespace Parkology
             col.Add(car);
             var tr = car.view.transform;
             car.view.Body.localPosition = Vector3.zero;
+            car.view.Body.localRotation = Quaternion.identity;
             Car pushed = null;
             if (col.Count > Spec.Slots)
             {
@@ -858,7 +944,7 @@ namespace Parkology
             moving.Add(car);
             var tr = car.view.transform;
             Vector3 from = tr.localPosition;
-            Vector3 to = new Vector3(ColX(c), 0.04f, ring.Center.z - ring.HalfH);
+            Vector3 to = new Vector3(ColX(c), 0.02f, ring.Center.z - ring.HalfH);
             Quaternion fromRot = tr.localRotation, toRot = Quaternion.LookRotation(Vector3.left);
             car.view.Express(Face.Surprised, 0.7f);
             animations++;
@@ -874,6 +960,7 @@ namespace Parkology
                 car.state = State.Loop;
                 car.s = dockBottom[c];
                 car.speed = Speed * 0.5f;
+                ResetLean(car);
             }, 0.06f, tr, ("move", tr));
             if (!Demo) Sfx.Play("go", 0.45f, 1.2f, 0, 0.08f);
         }
