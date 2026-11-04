@@ -13,7 +13,7 @@ namespace Parkology
     /// </summary>
     public sealed class GameBoard : MonoBehaviour
     {
-        const float Speed = 3.6f;
+        const float Speed = 4.2f;
         /// <summary>Loop speed multiplier for the finish: nothing is left to send and the rest fills two columns.</summary>
         const float RushPace = 3.2f;
         const float LaneGap = 1.05f;
@@ -550,7 +550,7 @@ namespace Parkology
                 var tr = lanes[lane][k].view.transform;
                 Vector3 from = tr.localPosition, to = LanePos(lane, k);
                 // the queue rolls up once the block ahead has pulled away, so the two never touch
-                Tween.Run(0.3f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutCubic, null, 0.16f + k * 0.03f, tr, ("lane", tr));
+                Tween.Run(0.26f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutCubic, null, 0.12f + k * 0.025f, tr, ("lane", tr));
             }
         }
 
@@ -682,7 +682,7 @@ namespace Parkology
                 car.entry = WaitAt + 0.0002f;
             }
             float target = car.entry < WaitAt ? Speed : FollowSpeed(car, MergeParam(car.lane) - (Straight + Arc - car.entry));
-            car.speed = Mathf.MoveTowards(car.speed, target, dt * 11f);
+            car.speed = Mathf.MoveTowards(car.speed, target, dt * 13f);
             float next = car.entry + car.speed * dt;
             car.entry = car.entry < WaitAt ? Mathf.Min(next, WaitAt) : next;
             if (car.entry >= Straight + Arc)
@@ -893,7 +893,7 @@ namespace Parkology
             Vector3 from = tr.localPosition, to = SlotPos(c, slot);
             Quaternion fromRot = tr.localRotation, toRot = Quaternion.LookRotation(Vector3.back);
             animations++;
-            Tween.Run(0.26f, e =>
+            Tween.Run(0.22f, e =>
             {
                 if (!tr) return;
                 Vector3 p = Vector3.Lerp(from, to, e);
@@ -936,7 +936,7 @@ namespace Parkology
                 var tr = car.view.transform;
                 Vector3 from = tr.localPosition, to = SlotPos(c, k);
                 if ((from - to).sqrMagnitude < 0.0001f) continue;
-                Tween.Run(0.22f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutBack, null, 0.03f * k, tr, ("move", tr));
+                Tween.Run(0.19f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutBack, null, 0.03f * k, tr, ("move", tr));
             }
         }
 
@@ -954,7 +954,7 @@ namespace Parkology
             Quaternion fromRot = tr.localRotation, toRot = Quaternion.LookRotation(Vector3.left);
             car.view.Express(Face.Surprised, 0.7f);
             animations++;
-            Tween.Run(0.24f, e =>
+            Tween.Run(0.2f, e =>
             {
                 if (!tr) return;
                 tr.localPosition = Vector3.Lerp(from, to, e);

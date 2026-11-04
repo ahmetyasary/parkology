@@ -105,7 +105,7 @@ namespace Parkology
             var m = new MeshBuilder();
             Color asphalt = MeshBuilder.Fixed(Palette.Road), edge = MeshBuilder.Fixed(Palette.RoadEdge);
             // dashes are painted faintly (the road colour shows through) so they guide without drawing the eye
-            Color line = MeshBuilder.Fixed(Color.Lerp(Palette.Road, Palette.RoadLine, 0.4f));
+            Color line = MeshBuilder.Fixed(Color.Lerp(Palette.Road, Palette.RoadLine, 0.25f));
             float hw = RoadWidth * 0.5f;
             const float y = 0.02f;
 
