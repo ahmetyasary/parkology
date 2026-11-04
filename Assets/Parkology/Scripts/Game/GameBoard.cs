@@ -13,7 +13,7 @@ namespace Parkology
     /// </summary>
     public sealed class GameBoard : MonoBehaviour
     {
-        const float Speed = 2.6f;
+        const float Speed = 3.6f;
         /// <summary>Loop speed multiplier for the finish: nothing is left to send and the rest fills two columns.</summary>
         const float RushPace = 3.2f;
         const float LaneGap = 1.05f;
@@ -187,8 +187,8 @@ namespace Parkology
         Vector3 SlotPos(int c, int k) => new Vector3(ColX(c), WorldView.LotTop, k - (Spec.Slots - 1) * 0.5f);
         Vector3 LanePos(int lane, int index) => new Vector3(laneX[lane], 0.02f, laneHead - index * LaneGap);
 
-        /// <summary>Perspective lens and tilt: a toy table seen from a low angle, so blocks show their sides and depth.</summary>
-        const float Fov = 30f, Tilt = 52f;
+        /// <summary>Perspective lens and tilt: seen from nearly overhead, with just enough perspective to show depth.</summary>
+        const float Fov = 30f, Tilt = 80f;
 
         /// <summary>
         /// Frames loop, lot and the front of the depots between the HUD and the booster bar: the closest camera
@@ -550,7 +550,7 @@ namespace Parkology
                 var tr = lanes[lane][k].view.transform;
                 Vector3 from = tr.localPosition, to = LanePos(lane, k);
                 // the queue rolls up once the block ahead has pulled away, so the two never touch
-                Tween.Run(0.3f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutCubic, null, 0.22f + k * 0.04f, tr, ("lane", tr));
+                Tween.Run(0.3f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutCubic, null, 0.16f + k * 0.03f, tr, ("lane", tr));
             }
         }
 
@@ -682,7 +682,7 @@ namespace Parkology
                 car.entry = WaitAt + 0.0002f;
             }
             float target = car.entry < WaitAt ? Speed : FollowSpeed(car, MergeParam(car.lane) - (Straight + Arc - car.entry));
-            car.speed = Mathf.MoveTowards(car.speed, target, dt * 8f);
+            car.speed = Mathf.MoveTowards(car.speed, target, dt * 11f);
             float next = car.entry + car.speed * dt;
             car.entry = car.entry < WaitAt ? Mathf.Min(next, WaitAt) : next;
             if (car.entry >= Straight + Arc)
@@ -893,7 +893,7 @@ namespace Parkology
             Vector3 from = tr.localPosition, to = SlotPos(c, slot);
             Quaternion fromRot = tr.localRotation, toRot = Quaternion.LookRotation(Vector3.back);
             animations++;
-            Tween.Run(0.36f, e =>
+            Tween.Run(0.26f, e =>
             {
                 if (!tr) return;
                 Vector3 p = Vector3.Lerp(from, to, e);
@@ -936,7 +936,7 @@ namespace Parkology
                 var tr = car.view.transform;
                 Vector3 from = tr.localPosition, to = SlotPos(c, k);
                 if ((from - to).sqrMagnitude < 0.0001f) continue;
-                Tween.Run(0.28f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutBack, null, 0.04f * k, tr, ("move", tr));
+                Tween.Run(0.22f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutBack, null, 0.03f * k, tr, ("move", tr));
             }
         }
 
@@ -954,7 +954,7 @@ namespace Parkology
             Quaternion fromRot = tr.localRotation, toRot = Quaternion.LookRotation(Vector3.left);
             car.view.Express(Face.Surprised, 0.7f);
             animations++;
-            Tween.Run(0.32f, e =>
+            Tween.Run(0.24f, e =>
             {
                 if (!tr) return;
                 tr.localPosition = Vector3.Lerp(from, to, e);
