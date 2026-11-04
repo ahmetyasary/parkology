@@ -13,7 +13,7 @@ namespace Parkology
     /// </summary>
     public sealed class GameBoard : MonoBehaviour
     {
-        const float Speed = 4.8f;
+        const float Speed = 5.6f;
         /// <summary>Loop speed multiplier for the finish: nothing is left to send and the rest fills two columns.</summary>
         const float RushPace = 3.2f;
         const float LaneGap = 1.05f;
@@ -550,7 +550,7 @@ namespace Parkology
                 var tr = lanes[lane][k].view.transform;
                 Vector3 from = tr.localPosition, to = LanePos(lane, k);
                 // the queue rolls up once the block ahead has pulled away, so the two never touch
-                Tween.Run(0.22f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutCubic, null, 0.1f + k * 0.02f, tr, ("lane", tr));
+                Tween.Run(0.19f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutCubic, null, 0.08f + k * 0.018f, tr, ("lane", tr));
             }
         }
 
@@ -613,17 +613,31 @@ namespace Parkology
             mpb.SetColor("_Color", new Color(0.3f, 0.55f, 1f));
             mpb.SetVector("_DecalRect", Vector4.zero);
             hr.SetPropertyBlock(mpb);
-            // pivot to the right of the back block: wind up, then slam the head down onto it
-            hammer.transform.localPosition = pos + new Vector3(1.25f, 0.2f, 0f);
-            hammer.transform.localRotation = Quaternion.Euler(0, 0, -25f);
+            // The hammer swings in from behind the column and strikes the back block's rear face down the column, the
+            // same way the column then shoves its front block out. The handle rises from the head to a pivot to the
+            // right (so it clears the neighbouring column) and the head's face points down the column.
+            mesh.transform.localRotation = Quaternion.Euler(0, 0, 120f) * Quaternion.Euler(0, 90f, 0);
+            const float Size = 1.5f;
+            Vector3 face = pos + new Vector3(0f, 0.5f, 0.41f + 0.375f * Size);
+            hammer.transform.localPosition = face + new Vector3(1.04f, 0.6f, 0f) * Size;
+            const float WindUp = 70f;
+            hammer.transform.localRotation = Quaternion.Euler(0, WindUp, 0);
+            hammer.transform.localScale = Vector3.zero;
             var ht = hammer.transform;
             back.view.Express(Face.Surprised, 1.2f);
-            Sfx.Play("whoosh", 0.5f, 1.3f);
             animations++;
-            Tween.Run(0.3f, e => { if (ht) ht.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(-25f, 76f, e)); }, Ease.InCubic, () =>
+            // pop in at the wind-up, pull back a touch further, then swing through
+            Tween.Run(0.14f, e => { if (ht) ht.localScale = Vector3.one * (Size * e); }, Ease.OutBack, null, 0f, ht);
+            Tween.Run(0.16f, e => { if (ht) ht.localRotation = Quaternion.Euler(0, WindUp + 18f * e, 0); }, Ease.OutCubic, () =>
+            {
+                Sfx.Play("whoosh", 0.5f, 1.3f);
+                Tween.Run(0.14f, e => { if (ht) ht.localRotation = Quaternion.Euler(0, Mathf.Lerp(WindUp + 18f, 0f, e), 0); }, Ease.InCubic, Strike, 0f, ht);
+            }, 0.1f, ht);
+
+            void Strike()
             {
                 animations--;
-                Fx.Sparkle(transform.TransformPoint(pos + Vector3.up * 0.8f), 10);
+                Fx.Sparkle(transform.TransformPoint(face), 10);
                 Fx.Shake(rig, 0.5f);
                 Sfx.Play("hammer", 0.9f);
                 Haptics.Play(Haptic.Heavy);
@@ -632,13 +646,23 @@ namespace Parkology
                     back.view.Squash(0.4f);
                     back.view.Flash(0.7f);
                 }
-                Tween.Run(0.3f, e => { if (ht) ht.localScale = Vector3.one * (1f - e); }, Ease.InBack, () => { if (ht) Destroy(ht.gameObject); }, 0.15f, ht);
+                // the blow travels down the column: every block jolts towards the exit, the back one first
+                for (int k = col.Count - 1; k >= 0; k--)
+                {
+                    var car = col[k];
+                    if (car.state != State.Parked || !car.view) continue;
+                    var tr = car.view.transform;
+                    Vector3 home = SlotPos(c, k);
+                    Tween.Run(0.2f, e => { if (tr) tr.localPosition = home + Vector3.back * (Mathf.Sin(e * Mathf.PI) * 0.24f); }, Ease.Linear, null, 0.025f * (col.Count - 1 - k), tr, ("move", tr));
+                }
+                // follow-through, then the hammer bounces back and shrinks away
+                Tween.Run(0.28f, e => { if (ht) { ht.localRotation = Quaternion.Euler(0, 22f * Mathf.Sin(e * Mathf.PI * 0.5f), 0); ht.localScale = Vector3.one * (Size * (1f - e * e)); } }, Ease.OutCubic, () => { if (ht) Destroy(ht.gameObject); }, 0.08f, ht);
                 if (col.Count == 0 || clearing[c]) return;
                 // the front block rolls out as soon as the road below the column is free
                 hammered[c] = true;
                 animations++;
                 FlushHammered();
-            }, 0.05f, ht);
+            }
         }
 
         void FlushHammered()
@@ -681,8 +705,8 @@ namespace Parkology
                 car.waiting = false;
                 car.entry = WaitAt + 0.0002f;
             }
-            float target = car.entry < WaitAt ? Speed : FollowSpeed(car, MergeParam(car.lane) - (Straight + Arc - car.entry));
-            car.speed = Mathf.MoveTowards(car.speed, target, dt * 15f);
+            float target = car.entry < WaitAt ? Speed : FollowSpeed(car, MergeParam(car.lane) - (Straight + Arc - car.entry), MergeParam(car.lane));
+            car.speed = Mathf.MoveTowards(car.speed, target, dt * 18f);
             float next = car.entry + car.speed * dt;
             car.entry = car.entry < WaitAt ? Mathf.Min(next, WaitAt) : next;
             if (car.entry >= Straight + Arc)
@@ -782,12 +806,16 @@ namespace Parkology
         bool ExitClear(int c) => SpotClear(dockBottom[c], null);
 
         /// <summary>Car-following: slow down when the block ahead gets close.</summary>
-        float FollowSpeed(Car car, float myS)
+        float FollowSpeed(Car car, float myS, float joinAt = -1f)
         {
             float best = float.MaxValue;
+            float toJoin = joinAt >= 0f ? ring.Ahead(myS, joinAt) : 0f;
             foreach (var o in moving)
             {
                 if (o == car || !OnRoad(o, out float os)) continue;
+                // A block turning in ignores loop blocks still short of its join point: they are braking for it, and
+                // waiting on them in turn would lock both up.
+                if (joinAt >= 0f && ring.Ahead(os, joinAt) < toJoin) continue;
                 float gap = ring.Ahead(myS, os) - CarHalf * 2f;
                 if (gap > ring.Length - 1.5f) continue; // that block is just behind us
                 best = Mathf.Min(best, gap);
@@ -893,7 +921,7 @@ namespace Parkology
             Vector3 from = tr.localPosition, to = SlotPos(c, slot);
             Quaternion fromRot = tr.localRotation, toRot = Quaternion.LookRotation(Vector3.back);
             animations++;
-            Tween.Run(0.19f, e =>
+            Tween.Run(0.17f, e =>
             {
                 if (!tr) return;
                 Vector3 p = Vector3.Lerp(from, to, e);
@@ -936,7 +964,7 @@ namespace Parkology
                 var tr = car.view.transform;
                 Vector3 from = tr.localPosition, to = SlotPos(c, k);
                 if ((from - to).sqrMagnitude < 0.0001f) continue;
-                Tween.Run(0.17f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutBack, null, 0.03f * k, tr, ("move", tr));
+                Tween.Run(0.15f, e => { if (tr) tr.localPosition = Vector3.LerpUnclamped(from, to, e); }, Ease.OutBack, null, 0.025f * k, tr, ("move", tr));
             }
         }
 
@@ -954,7 +982,7 @@ namespace Parkology
             Quaternion fromRot = tr.localRotation, toRot = Quaternion.LookRotation(Vector3.left);
             car.view.Express(Face.Surprised, 0.7f);
             animations++;
-            Tween.Run(0.18f, e =>
+            Tween.Run(0.16f, e =>
             {
                 if (!tr) return;
                 tr.localPosition = Vector3.Lerp(from, to, e);
